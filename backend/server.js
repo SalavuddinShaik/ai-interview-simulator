@@ -7,6 +7,10 @@ const Interview = require("./models/Interview");
 const User = require("./models/User");
 const authMiddleware = require("./middleware/authMiddleware");
 require("dotenv").config();
+const { exec } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+
 
 console.log(
   "🔍 OpenAI API Key Loaded:",
@@ -178,6 +182,86 @@ app.post("/api/evaluate", async (req, res) => {
       .json({ error: "Internal Server Error", details: error.message });
   }
 });
+/**
+ * ✅ AI Code Execution Route (Like LeetCode)
+ */
+app.post("/api/execute", async (req, res) => {
+  try {
+    const { language, code } = req.body;
+
+    if (!language || !code) {
+      return res.status(400).json({ error: "Missing language or code" });
+    }
+
+    console.log(`🚀 Executing ${language} code...`);
+
+    let filename, command;
+
+    if (language === "python") {
+      filename = path.join(__dirname, "code.py");
+      command = `python3 ${filename}`;
+    } else if (language === "javascript") {
+      filename = path.join(__dirname, "code.js");
+      command = `node ${filename}`;
+    } else {
+      return res.status(400).json({ error: "Unsupported language" });
+    }
+
+    // 🔹 Write code to a temporary file
+    fs.writeFileSync(filename, code);
+
+    // 🔹 Execute the code
+    exec(command, async (error, stdout, stderr) => {
+      const executionOutput = error ? stderr || error.message : stdout;
+
+      // 🔹 Send code to OpenAI for analysis
+      const aiPrompt = `
+        Analyze the following ${language} code:
+        ${code}
+
+        1️⃣ Identify potential bugs.
+        2️⃣ Provide Big-O time complexity analysis.
+        3️⃣ Suggest improvements.
+
+        Respond in JSON format:
+        {
+          "correctness": "Your correctness analysis...",
+          "efficiency": "Big-O analysis...",
+          "suggestions": "Code improvement suggestions..."
+        }
+      `;
+
+      const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [{ role: "system", content: aiPrompt }],
+          max_tokens: 300,
+        }),
+      });
+
+      const aiData = await aiResponse.json();
+      const aiFeedback = aiData.choices[0]?.message?.content || "{}";
+
+      let feedback;
+      try {
+        feedback = JSON.parse(aiFeedback);
+      } catch {
+        feedback = { correctness: "Error parsing AI response", efficiency: "", suggestions: "" };
+      }
+
+      res.json({ output: executionOutput, feedback });
+    });
+  } catch (error) {
+    console.error("🚨 Error executing code:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 
 /**
  * ✅ User Login Route (Fix 404 Error)
