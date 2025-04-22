@@ -2,11 +2,18 @@
 import { useState } from "react";
 import Editor from "@monaco-editor/react";
 
+// ✅ Define the feedback type
+type FeedbackType = {
+  correctness: string;
+  efficiency: string;
+  suggestions: string;
+};
+
 export default function CodeExecutionPage() {
   const [language, setLanguage] = useState("python");
   const [code, setCode] = useState("");
   const [output, setOutput] = useState("");
-  const [feedback, setFeedback] = useState<any>(null);
+  const [feedback, setFeedback] = useState<FeedbackType | null>(null);
   const [loading, setLoading] = useState(false);
 
   const executeCode = async () => {

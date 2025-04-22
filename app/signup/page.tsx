@@ -1,6 +1,5 @@
 "use client";
 import { useState, useContext } from "react";
-// import { useRouter } from "next/navigation";
 import AuthContext from "../../context/AuthContext"; // ✅ Correct Import Path
 import { motion } from "framer-motion";
 import { FaUser, FaEnvelope, FaLock } from "react-icons/fa";
