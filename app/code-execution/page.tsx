@@ -38,8 +38,8 @@ export default function CodeExecutionPage() {
       const data = await response.json();
       setOutput(data.output);
       setFeedback(data.feedback);
-    } catch (error) {
-      console.error("🚨 Error executing code:", error);
+    } catch {
+      console.error("🚨 Error executing code");
       setOutput("⚠️ An error occurred. Please try again.");
     } finally {
       setLoading(false);
