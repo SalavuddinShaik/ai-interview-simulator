@@ -4,6 +4,7 @@ import { useState, useEffect, useContext } from "react";
 import { useRouter } from "next/navigation";
 import AuthContext from "@/context/AuthContext";
 import { fetchUserData } from "@/services/api";
+import { motion } from "framer-motion";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -86,7 +87,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0e0e1a] text-white p-6 flex flex-col items-center">
-      <h1 className="text-4xl font-extrabold text-yellow-400 mb-3 drop-shadow-md">
+      <h1 className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-yellow-400 to-orange-500 text-transparent bg-clip-text mb-3 drop-shadow-lg">
         Hi, {user?.name || "Guest"} 👋
       </h1>
 
@@ -94,7 +95,7 @@ export default function Dashboard() {
         Level: <span className="text-green-400 font-semibold">{level}</span>
       </p>
 
-      <div className="w-full max-w-md mb-6">
+      <div className="w-full max-w-md mb-6 p-4 bg-gradient-to-br from-[#1e1e2f] to-[#111118] rounded-2xl border border-gray-700 shadow-[0_0_12px_rgba(124,58,237,0.3)]">
         <p className="text-sm text-gray-400 mb-1">XP Progress</p>
         <div className="bg-gray-700 rounded-full h-2 overflow-hidden shadow-inner">
           <div
@@ -117,50 +118,66 @@ export default function Dashboard() {
 
       <button
         onClick={() => router.push("/interview")}
-        className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-full mb-6"
+        className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:brightness-110 text-white font-semibold py-3 px-8 rounded-full shadow-md transition"
       >
         🎮 Start Interview
       </button>
 
-      <div className="text-center mb-4">
-        <p className="text-xl text-blue-400">
-          🧠 Interviews Attended:{" "}
-          <span className="font-bold">{interviews}</span>
+      <div className="w-full max-w-md text-center mb-6 p-4 rounded-2xl border border-gray-700 shadow-[0_0_12px_rgba(124,58,237,0.4)] bg-gradient-to-br from-[#1e1e2f] to-[#111118]">
+        <p className="text-lg text-blue-300 font-semibold mb-2">
+          🧠 <span className="text-white">Interviews Attended:</span>{" "}
+          <span className="text-blue-400">{interviews}</span>
         </p>
-        <p className="text-blue-300 text-sm mt-1">
-          🔥 Current Streak: {streak} days
+        <p className="text-sm text-orange-300 font-medium">
+          🔥 <span className="text-white">Current Streak:</span> {streak} days
         </p>
       </div>
 
-      <div className="w-full max-w-md mb-6">
+      <div className="w-full max-w-md mb-6 p-4 bg-gradient-to-br from-[#1e1e2f] to-[#111118] rounded-2xl border border-gray-700 shadow-[0_0_12px_rgba(124,58,237,0.3)]">
         <h2 className="text-xl font-bold text-yellow-300 mb-3">
           🏆 Achievements
         </h2>
         <ul className="flex gap-2 flex-wrap text-sm text-green-300">
           {achievements.map((a, i) => (
-            <li key={i} className="bg-gray-700 px-3 py-1 rounded-full">
+            <li
+              key={i}
+              className="px-4 py-1 bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white rounded-full shadow text-sm font-semibold"
+            >
               {a}
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="w-full max-w-md mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.5 }}
+        className="w-full max-w-md mb-6 p-5 bg-gradient-to-br from-[#1e1e2f] to-[#111118] rounded-2xl border border-gray-700 shadow-[0_0_16px_rgba(124,58,237,0.4)]"
+      >
         <h2 className="text-xl font-bold text-yellow-300 mb-3">📌 Goals</h2>
         <ul className="list-disc list-inside space-y-2 text-white text-sm">
           {goals.map((goal, idx) => (
             <li key={idx}>{goal}</li>
           ))}
         </ul>
-      </div>
+      </motion.div>
 
       <div className="bg-gray-800 text-white text-sm p-3 rounded mt-2 w-full max-w-md">
         🌅 {quote}
       </div>
-      <div className="mt-6 w-full max-w-md bg-gray-900 rounded-lg p-4 text-sm">
-        <h3 className="text-yellow-300 font-bold mb-2">🧠 Quick Stats</h3>
-        <p>Total Answers: {stats.totalAnswers}</p>
-        <p>Accuracy: {stats.accuracy}</p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="mt-6 w-full max-w-md p-5 text-sm bg-gradient-to-br from-[#1e1e2f] to-[#111118] rounded-2xl border border-gray-700 shadow-[0_0_16px_rgba(124,58,237,0.4)]"
+      >
+        <h3 className="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">
+          🧠 Quick Stats
+        </h3>
+
+        <p className="mb-2">✅ Total Answers: {stats.totalAnswers}</p>
+        <p className="mb-2">🎯 Accuracy: {stats.accuracy}</p>
 
         {/* Recent Topic */}
         <div className="flex items-center gap-2 mt-2">
@@ -185,7 +202,7 @@ export default function Dashboard() {
             {stats.difficulty || "-"}
           </span>
         </div>
-      </div>
+      </motion.div>
 
       <div className="mt-10 w-full max-w-2xl">
         <h2 className="text-xl font-bold text-yellow-300 mb-4">
@@ -196,7 +213,7 @@ export default function Dashboard() {
           {Object.entries(skills).map(([key, value]) => (
             <div
               key={key}
-              className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700"
+              className="rounded-2xl p-4 border border-gray-700 shadow-[0_0_12px_rgba(124,58,237,0.4)] bg-gradient-to-br from-[#1e1e2f] to-[#111118] transition hover:shadow-lg hover:scale-[1.02]"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-gray-300 capitalize">
@@ -228,7 +245,7 @@ export default function Dashboard() {
 
       <button
         onClick={() => window.location.reload()}
-        className="mt-8 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-full"
+        className="mt-8 bg-gradient-to-r from-gray-600 to-gray-700 hover:brightness-110 text-white px-6 py-2 rounded-full shadow-md transition"
       >
         🔁 Refresh Dashboard
       </button>

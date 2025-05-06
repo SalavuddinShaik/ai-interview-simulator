@@ -6,6 +6,12 @@ import AuthContext from "../../context/AuthContext";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import Editor from "@monaco-editor/react";
+type Feedback = {
+  grade?: string;
+  correctness?: string;
+  efficiency?: string;
+  suggestions?: string;
+};
 
 const playSound = (filename: string) => {
   const audioPath = `/sounds/${filename}`;
@@ -38,7 +44,8 @@ export default function Interview() {
 
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [topic, setTopic] = useState("Data Structures");
@@ -50,7 +57,7 @@ export default function Interview() {
   const [executionFeedback, setExecutionFeedback] = useState(null);
   const isCodingTopic = topic === "Data Structures" || topic === "Algorithms";
   const isTextTopic = topic === "System Design" || topic === "Behavioral";
-  const demoMode = true;
+  const demoMode = false;
   const sampleQuestions: Record<string, string> = {
     "Data Structures": `Implement a Stack using two Queues.
   
@@ -100,9 +107,15 @@ export default function Interview() {
     if (savedAnswer) setAnswer(savedAnswer);
     if (savedFeedback) {
       try {
-        setFeedback(JSON.parse(savedFeedback));
+        const parsedFeedback: Feedback = JSON.parse(savedFeedback);
+        setFeedback(parsedFeedback);
       } catch {
-        setFeedback("");
+        setFeedback({
+          correctness: "",
+          efficiency: "",
+          suggestions: "",
+          grade: "",
+        });
       }
     }
 
@@ -138,7 +151,8 @@ export default function Interview() {
   const fetchQuestion = async () => {
     setLoading(true);
     setQuestion("");
-    setFeedback("");
+    setFeedback(null);
+
     setQuestionGenerated(false);
 
     try {
@@ -200,7 +214,7 @@ export default function Interview() {
     }
 
     setLoading(true);
-    setFeedback("");
+    setFeedback(null);
 
     try {
       // ✅ Add logging HERE — this is Step A
@@ -260,6 +274,14 @@ export default function Interview() {
         },
         body: JSON.stringify({ question, answer, topic, difficulty }),
       });
+      if (res.status === 409) {
+        alert(
+          "⚠️ You’ve already submitted this answer before. Try a different one."
+        );
+        setLoading(false);
+        return;
+      }
+
       // 🔐 Step 1: Handle expired token
       if (res.status === 401) {
         alert("Session expired. Please log in again.");
@@ -275,7 +297,8 @@ export default function Interview() {
       // ✅ Log backend response
       console.log("🧠 Received from /api/evaluate:", data);
       if (data.feedback) {
-        setFeedback(data.feedback);
+        setFeedback(data.feedback as Feedback);
+
         localStorage.setItem("userAnswer", answer);
         localStorage.setItem("aiFeedback", JSON.stringify(data.feedback));
         localStorage.setItem("answerTopic", topic);
@@ -326,7 +349,8 @@ export default function Interview() {
   const resetInterview = () => {
     setQuestion("");
     setAnswer("");
-    setFeedback("");
+    setFeedback(null);
+
     setExecutionOutput(""); // ✅ clear terminal
     setExecutionFeedback(null); // ✅ clear feedback
     setQuestionGenerated(false);
@@ -361,7 +385,7 @@ export default function Interview() {
             setAnswer(""); // ✅ clear previous code or text
             setExecutionOutput(""); // ✅ clear terminal
             setExecutionFeedback(null); // ✅ clear feedback
-            setFeedback(""); // ✅ clear AI grade feedback
+            setFeedback(null); // ✅ clear AI grade feedback
           }}
         >
           <option value="Data Structures">📦 Data Structures</option>
@@ -422,29 +446,30 @@ export default function Interview() {
         </motion.div>
       )}
 
-      <div className="w-full max-w-4xl mt-6 rounded-xl overflow-hidden border border-gray-600 shadow-inner">
-        {isCodingTopic && (
-          <Editor
-            height="300px"
-            language={
-              selectedLanguage === "C++"
-                ? "cpp"
-                : selectedLanguage.toLowerCase()
-            }
-            theme="vs-dark"
-            value={answer}
-            onChange={(value) => setAnswer(value || "")}
-          />
-        )}
-        {isTextTopic && (
-          <textarea
-            className="w-full h-40 mt-4 p-4 text-sm rounded-xl bg-gray-800 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Type your answer here..."
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-          />
-        )}
-
+      <div className="w-full max-w-4xl mt-6 rounded-2xl overflow-hidden border border-gray-700 shadow-[0_0_12px_rgba(124,58,237,0.3)] bg-gradient-to-br from-[#1e1e2f] to-[#111118]">
+        <div className="px-3 py-2">
+          {isCodingTopic && (
+            <Editor
+              height="300px"
+              language={
+                selectedLanguage === "C++"
+                  ? "cpp"
+                  : selectedLanguage.toLowerCase()
+              }
+              theme="vs-dark"
+              value={answer}
+              onChange={(value) => setAnswer(value || "")}
+            />
+          )}
+          {isTextTopic && (
+            <textarea
+              className="w-full h-40 mt-4 p-4 text-sm rounded-xl bg-gray-800 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Type your answer here..."
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+            />
+          )}
+        </div>
         {/* Terminal Output */}
         {executionOutput && (
           <div className="mt-6 w-full max-w-4xl bg-black text-green-400 p-4 rounded-xl border border-green-600 font-mono text-sm">
@@ -457,13 +482,12 @@ export default function Interview() {
 
         {isCodingTopic && executionFeedback && (
           <>
-
-            <div className="mt-4 max-w-4xl w-full p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700">
-              <h3 className="text-xl font-bold text-blue-300 mb-4">
-                🧠 AI Feedback
+            <div className="mt-6 max-w-4xl w-full bg-gradient-to-br from-[#1f2937] to-[#111827] border border-gray-700 rounded-2xl shadow-xl p-6">
+              <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                🧠 AI Feedback (Coding)
               </h3>
               <div className="grid md:grid-cols-3 gap-4">
-                <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                <div className="bg-gray-900 border border-green-500 rounded-xl p-4 shadow">
                   <h4 className="text-green-400 font-semibold mb-2">
                     ✅ Correctness
                   </h4>
@@ -471,15 +495,15 @@ export default function Interview() {
                     {executionFeedback.correctness || "No feedback"}
                   </p>
                 </div>
-                <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
-                  <h4 className="text-yellow-400 font-semibold mb-2">
+                <div className="bg-gray-900 border border-yellow-400 rounded-xl p-4 shadow">
+                  <h4 className="text-yellow-300 font-semibold mb-2">
                     ⚡ Efficiency
                   </h4>
                   <p className="text-gray-300 text-sm">
                     {executionFeedback.efficiency || "No feedback"}
                   </p>
                 </div>
-                <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                <div className="bg-gray-900 border border-blue-400 rounded-xl p-4 shadow">
                   <h4 className="text-blue-400 font-semibold mb-2">
                     📌 Suggestions
                   </h4>
@@ -516,9 +540,9 @@ export default function Interview() {
       <div className="mt-4 flex flex-wrap gap-4 justify-center">
         {isCodingTopic && (
           <motion.button
-            whileHover={{ scale: 1.1 }}
+            whileHover={{ scale: 1.08 }}
             onClick={runCode}
-            className="bg-yellow-500 px-6 py-2 rounded-xl text-white font-semibold"
+            className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold px-6 py-2 rounded-full shadow-md hover:brightness-110 transition-all"
           >
             ▶️ Run Code
           </motion.button>
@@ -526,26 +550,27 @@ export default function Interview() {
 
         {isTextTopic && (
           <motion.button
-            whileHover={{ scale: 1.1 }}
+            whileHover={{ scale: 1.08 }}
             onClick={startSpeechRecognition}
-            className="bg-green-500 px-6 py-2 rounded-xl text-white font-semibold"
+            className="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold px-6 py-2 rounded-full shadow-md hover:brightness-110 transition-all"
           >
             🎤 Speak Answer
           </motion.button>
         )}
 
         <motion.button
-          whileHover={{ scale: 1.1 }}
+          whileHover={{ scale: 1.08 }}
           onClick={submitAnswer}
-          className="bg-blue-500 px-6 py-2 rounded-xl text-white font-semibold"
+          className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold px-6 py-2 rounded-full shadow-md hover:brightness-110 transition-all"
         >
           {loading ? "Submitting..." : "🚀 Submit Answer"}
         </motion.button>
+
         {questionGenerated && (
           <motion.button
-            whileHover={{ scale: 1.1 }}
+            whileHover={{ scale: 1.08 }}
             onClick={resetInterview}
-            className="bg-red-600 px-6 py-2 rounded-xl text-white font-semibold"
+            className="bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold px-6 py-2 rounded-full shadow-md hover:brightness-110 transition-all"
           >
             🔁 New Interview
           </motion.button>
@@ -558,31 +583,40 @@ export default function Interview() {
         </p>
       )}
 
-      {isTextTopic && feedback && (
+      {isTextTopic && feedback !== null && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="mt-6 p-6 bg-gray-800 rounded-xl shadow-lg border border-gray-700 max-w-4xl w-full"
+          className="mt-6 max-w-4xl w-full bg-gradient-to-br from-[#1f2937] to-[#111827] border border-gray-700 rounded-2xl shadow-xl p-6"
         >
-          <h3 className="text-2xl font-bold text-gray-200 mb-6 flex items-center gap-2">
-            💡 AI Feedback
+          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+            💡 AI Feedback (Behavioral)
           </h3>
 
           {feedback.grade && (
-            <div className="mb-4 text-center">
+            <div className="mb-6 text-center">
               <span
-                className={`text-md font-semibold px-5 py-2 rounded-full ${
+                className={`text-md font-semibold px-6 py-2 rounded-full ${
                   feedback.grade === "pass" ? "bg-green-600" : "bg-red-600"
-                } text-white`}
+                } text-white shadow-md`}
               >
                 {feedback.grade === "pass" ? "✅ Passed" : "❌ Failed"}
               </span>
             </div>
           )}
+          {feedback.grade === "fail" &&
+            (feedback.correctness?.includes("correct") ||
+              feedback.efficiency?.includes("efficient") ||
+              feedback.suggestions?.includes("well done")) && (
+              <p className="text-yellow-400 text-sm mt-2 text-center">
+                ⚠️ This answer might have been misjudged. Review the feedback
+                and try again.
+              </p>
+            )}
 
           <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+            <div className="bg-gray-900 border border-green-500 rounded-xl p-4 shadow">
               <h4 className="text-green-400 font-semibold mb-2">
                 ✅ Correctness
               </h4>
@@ -591,8 +625,8 @@ export default function Interview() {
               </p>
             </div>
 
-            <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
-              <h4 className="text-yellow-400 font-semibold mb-2">
+            <div className="bg-gray-900 border border-yellow-400 rounded-xl p-4 shadow">
+              <h4 className="text-yellow-300 font-semibold mb-2">
                 ⚡ Efficiency
               </h4>
               <p className="text-gray-300 text-sm">
@@ -600,7 +634,7 @@ export default function Interview() {
               </p>
             </div>
 
-            <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+            <div className="bg-gray-900 border border-blue-400 rounded-xl p-4 shadow">
               <h4 className="text-blue-400 font-semibold mb-2">
                 📌 Suggestions
               </h4>
