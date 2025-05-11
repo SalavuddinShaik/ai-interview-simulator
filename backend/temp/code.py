@@ -1,11 +1,22 @@
 from typing import List
 
-def process_stack_operations(operations: List[int]) -> List[int]:
-    stack = []
-    for op in operations:
-        if op > 0:
-            stack.append(op)  # Push positive numbers
-        elif op < 0:
-            if stack:
-                stack.pop()  # Pop only if stack is not empty
-    return stack
+def find_longest_consecutive_subsequence(nums: List[int]) -> int:
+    if not nums:
+        return 0
+
+    num_set = set(nums)
+    longest = 0
+
+    for num in num_set:
+        # Only start counting if it's the start of a sequence
+        if num - 1 not in num_set:
+            current = num
+            streak = 1
+
+            while current + 1 in num_set:
+                current += 1
+                streak += 1
+
+            longest = max(longest, streak)
+
+    return longest

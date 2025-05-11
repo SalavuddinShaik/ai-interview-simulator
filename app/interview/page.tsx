@@ -11,6 +11,7 @@ type Feedback = {
   correctness?: string;
   efficiency?: string;
   suggestions?: string;
+  topic?: string;
 };
 
 const playSound = (filename: string) => {
@@ -57,6 +58,7 @@ export default function Interview() {
   const [executionFeedback, setExecutionFeedback] = useState(null);
   const isCodingTopic = topic === "Data Structures" || topic === "Algorithms";
   const isTextTopic = topic === "System Design" || topic === "Behavioral";
+
   const demoMode = false;
   const sampleQuestions: Record<string, string> = {
     "Data Structures": `Implement a Stack using two Queues.
@@ -91,7 +93,6 @@ export default function Interview() {
       localStorage.removeItem("currentQuestion");
       localStorage.removeItem("userAnswer");
       localStorage.removeItem("aiFeedback");
-      localStorage.removeItem("answerTopic");
 
       // ✅ Redirect to login
       router.replace("/login");
@@ -176,6 +177,7 @@ export default function Interview() {
       });
       const data = await res.json();
       setQuestion(data.question || "⚠️ No question received. Try again.");
+
       localStorage.setItem("currentQuestion", data.question || "");
       localStorage.removeItem("userAnswer");
       localStorage.removeItem("aiFeedback");
@@ -256,7 +258,7 @@ export default function Interview() {
         setFeedback(fakeFeedback);
         localStorage.setItem("userAnswer", answer);
         localStorage.setItem("aiFeedback", JSON.stringify(fakeFeedback));
-        localStorage.setItem("answerTopic", topic);
+
         setQuestionGenerated(false);
         await refreshUserData();
 
@@ -297,18 +299,49 @@ export default function Interview() {
       // ✅ Log backend response
       console.log("🧠 Received from /api/evaluate:", data);
       if (data.feedback) {
-        setFeedback(data.feedback as Feedback);
+        if (
+          data.feedback &&
+          typeof data.feedback === "object" &&
+          !data.feedback.correctness
+        ) {
+          const fb = data.feedback;
+
+          const extractText = (section: any) => {
+            const strengths = section.strengths?.join(" ") || "";
+            const improvements = section.areas_for_improvement?.join(" ") || "";
+            return `${strengths} ${improvements}`.trim();
+          };
+
+          const flatFeedback: Feedback = {
+            correctness:
+              extractText(fb.data_storage || {}) +
+              " " +
+              extractText(fb.unique_key_generation || ""),
+            efficiency:
+              extractText(fb.scalability || {}) +
+              " " +
+              extractText(fb.redundancy_and_reliability || {}),
+            suggestions:
+              extractText(fb.security || {}) +
+              " " +
+              extractText(fb.overall_design || ""),
+            grade: data.grade || "fail",
+          };
+
+          setFeedback(flatFeedback);
+        } else {
+          setFeedback(data.feedback as Feedback);
+        }
 
         localStorage.setItem("userAnswer", answer);
         localStorage.setItem("aiFeedback", JSON.stringify(data.feedback));
-        localStorage.setItem("answerTopic", topic);
         localStorage.removeItem("currentQuestion");
         await refreshUserData();
-        localStorage.removeItem("answerTopic");
 
         if (data.feedback.grade === "pass") {
           triggerConfetti();
           playSound("success.mp3");
+          playSound("submit.mp3");
         } else {
           playSound("fail.mp3");
         }
@@ -321,7 +354,6 @@ export default function Interview() {
       setFeedback("⚠️ An error occurred. Please try again.");
     } finally {
       setLoading(false);
-      playSound("submit.mp3");
     }
   };
   const runCode = async () => {
@@ -382,6 +414,8 @@ export default function Interview() {
           onChange={(e) => {
             const newTopic = e.target.value;
             setTopic(newTopic);
+
+            localStorage.setItem("answerTopic", newTopic);
             setAnswer(""); // ✅ clear previous code or text
             setExecutionOutput(""); // ✅ clear terminal
             setExecutionFeedback(null); // ✅ clear feedback
@@ -591,7 +625,17 @@ export default function Interview() {
           className="mt-6 max-w-4xl w-full bg-gradient-to-br from-[#1f2937] to-[#111827] border border-gray-700 rounded-2xl shadow-xl p-6"
         >
           <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-            💡 AI Feedback (Behavioral)
+            💡 AI Feedback (
+            {(() => {
+              const topicLabel = feedback?.topic || topic || "General";
+              if (topicLabel.includes("System")) return "System Design";
+              if (topicLabel.includes("Behavioral")) return "Behavioral";
+              if (topicLabel.includes("Conceptual")) return "Conceptual";
+              if (topicLabel.includes("Algorithm")) return "Algorithms";
+              if (topicLabel.includes("Structure")) return "Data Structures";
+              return "General";
+            })()}
+            )
           </h3>
 
           {feedback.grade && (
@@ -601,7 +645,9 @@ export default function Interview() {
                   feedback.grade === "pass" ? "bg-green-600" : "bg-red-600"
                 } text-white shadow-md`}
               >
-                {feedback.grade === "pass" ? "✅ Passed" : "❌ Failed"}
+                {(feedback.grade || "").toLowerCase() === "pass"
+                  ? "✅ Passed"
+                  : "❌ Failed"}
               </span>
             </div>
           )}
@@ -621,7 +667,11 @@ export default function Interview() {
                 ✅ Correctness
               </h4>
               <p className="text-gray-300 text-sm">
-                {feedback.correctness || "No feedback available."}
+                {feedback.correctness
+                  ?.toLowerCase()
+                  .includes("no correctness feedback")
+                  ? "No feedback available."
+                  : feedback.correctness}
               </p>
             </div>
 
@@ -630,7 +680,11 @@ export default function Interview() {
                 ⚡ Efficiency
               </h4>
               <p className="text-gray-300 text-sm">
-                {feedback.efficiency || "No feedback available."}
+                {feedback.efficiency
+                  ?.toLowerCase()
+                  .includes("no efficiency feedback")
+                  ? "No feedback available."
+                  : feedback.efficiency}
               </p>
             </div>
 
@@ -639,7 +693,11 @@ export default function Interview() {
                 📌 Suggestions
               </h4>
               <p className="text-gray-300 text-sm">
-                {feedback.suggestions || "No feedback available."}
+                {feedback.suggestions
+                  ?.toLowerCase()
+                  .includes("no suggestions available")
+                  ? "No feedback available."
+                  : feedback.suggestions}
               </p>
             </div>
           </div>

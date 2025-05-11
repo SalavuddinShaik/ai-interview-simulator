@@ -149,6 +149,14 @@ app.post("/api/evaluate", async (req, res) => {
       suggestions: "Simulated suggestion for improvement.",
       grade: req.body.grade || "pass",
     };
+    // 🛠 Ensure suggestions is a string
+    if (typeof fakeFeedback.suggestions !== "string") {
+      try {
+        fakeFeedback.suggestions = JSON.stringify(fakeFeedback.suggestions);
+      } catch {
+        fakeFeedback.suggestions = "Suggestions formatting error.";
+      }
+    }
 
     const simulatedAnswer = {
       question: req.body.question,
@@ -234,10 +242,218 @@ app.post("/api/evaluate", async (req, res) => {
 
   const data = await response.json();
   let feedback;
+  if (data.feedback) {
+    console.log("✅ Using feedback directly from OpenAI response");
+
+    // Fallback if it's already structured with correctness etc.
+    if (
+      typeof data.feedback === "object" &&
+      (data.feedback.correctness ||
+        data.feedback.efficiency ||
+        data.feedback.suggestions)
+    ) {
+      feedback = data.feedback;
+    }
+
+    // NEW: Handle 'evaluation' format like data.feedback.evaluation.architecture
+    else if (
+      data.feedback.evaluation &&
+      data.feedback.evaluation.architecture
+    ) {
+      const fb = data.feedback.evaluation;
+
+      const extractSection = (section) => {
+        const s = fb[section];
+        if (!s) return "";
+        return [
+          ...(s.strengths || []),
+          ...(s.areas_for_improvement || []),
+          s.comment || "",
+        ].join(" ");
+      };
+
+      feedback = {
+        correctness: extractSection("architecture"),
+        efficiency: extractSection("scalability"),
+        suggestions:
+          extractSection("personalization") +
+          " " +
+          extractSection("reliability") +
+          " " +
+          extractSection("analytics") +
+          " " +
+          extractSection("technology_choices"),
+        grade: "fail",
+      };
+    }
+  }
 
   try {
     // Try parsing directly – newer GPT models already return valid JSON strings
     feedback = JSON.parse(data.choices[0]?.message?.content);
+    // ✅ Clean mapping: Extract only correctness, efficiency, suggestions
+    if (
+      !feedback.correctness &&
+      !feedback.efficiency &&
+      !feedback.suggestions &&
+      feedback.Architecture
+    ) {
+      const extract = (obj) =>
+        Object.values(obj || {})
+          .filter(Boolean)
+          .join(" ");
+
+      feedback = {
+        correctness: extract(feedback.Architecture),
+        efficiency: extract(feedback["RealTimeCommunication"]),
+        suggestions: extract(feedback["OverallFeedback"]),
+        grade: "pass", // optional: you can assign based on keyword logic if needed
+      };
+    }
+
+    // ✅ Remap structured behavioral feedback if present
+    if (
+      !feedback.correctness &&
+      !feedback.efficiency &&
+      !feedback.suggestions &&
+      feedback.clarity?.comments &&
+      feedback.overall_feedback
+    ) {
+      console.log(
+        "🧠 Remapping structured behavioral feedback to standard format..."
+      );
+
+      feedback = {
+        correctness: feedback.clarity.comments || "No correctness feedback.",
+        efficiency: feedback.depth?.comments || "No efficiency feedback.",
+        suggestions: feedback.overall_feedback || "No suggestions available.",
+        grade: "pass",
+      };
+
+      // Optional: downgrade to fail if average rating is low
+      const scores = [
+        feedback.clarity?.rating,
+        feedback.completeness?.rating,
+        feedback.relevance?.rating,
+        feedback.persuasiveness?.rating,
+        feedback.depth?.rating,
+        feedback.professionalism?.rating,
+      ].filter((n) => typeof n === "number");
+
+      const avg = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
+      if (avg < 4) feedback.grade = "fail";
+    }
+
+    // ✅ Remap system design-style structured feedback if present
+    if (
+      !feedback.correctness &&
+      !feedback.efficiency &&
+      !feedback.suggestions &&
+      feedback.analysis?.assessment
+    ) {
+      console.log("🧠 Remapping system design feedback...");
+
+      const strengths = feedback.analysis.assessment.strengths?.join(" ") || "";
+      const weaknesses =
+        feedback.analysis.assessment.weaknesses?.join(" ") || "";
+      const tradeoffs = Object.values(feedback.analysis.trade_offs || {}).join(
+        " "
+      );
+
+      feedback = {
+        correctness: strengths || "No correctness feedback.",
+        efficiency: tradeoffs || "No efficiency feedback.",
+        suggestions: weaknesses || "No suggestions available.",
+        grade: "pass",
+      };
+
+      // Optional: downgrade to fail if average rating is low
+      const scores = [
+        feedback.clarity?.rating,
+        feedback.completeness?.rating,
+        feedback.relevance?.rating,
+        feedback.persuasiveness?.rating,
+        feedback.depth?.rating,
+        feedback.professionalism?.rating,
+      ].filter((n) => typeof n === "number");
+
+      const avg = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
+      if (avg < 4) feedback.grade = "fail";
+    }
+    // ✅ Remap OpenAI feedback using category-style keys like Architecture, Security, etc.
+    if (
+      !feedback.correctness &&
+      !feedback.efficiency &&
+      !feedback.suggestions &&
+      feedback.Architecture &&
+      feedback["Security and Privacy"]
+    ) {
+      console.log("🧠 Remapping category-based architecture feedback...");
+
+      const extractValues = (obj) =>
+        Object.values(obj || {})
+          .filter(Boolean)
+          .join(" ");
+
+      const correctness =
+        extractValues(feedback.Architecture) +
+        " " +
+        extractValues(feedback["Data Storage"]);
+
+      const efficiency =
+        extractValues(feedback["Scalability and Reliability"]) +
+        " " +
+        extractValues(feedback["Real-Time Communication"]);
+
+      const suggestions =
+        (feedback.Overall?.PotentialImprovements || "") +
+        " " +
+        extractValues(feedback["Security and Privacy"]) +
+        " " +
+        extractValues(feedback["Presence and Notifications"]);
+
+      feedback = {
+        correctness: correctness || "No correctness feedback.",
+        efficiency: efficiency || "No efficiency feedback.",
+        suggestions: suggestions || "No suggestions available.",
+        grade: "pass",
+      };
+    }
+    // ✅ Remap deeply structured feedback like "database_design", "scalability", etc.
+    if (
+      !feedback.correctness &&
+      !feedback.efficiency &&
+      !feedback.suggestions &&
+      feedback.feedback &&
+      feedback.feedback.database_design
+    ) {
+      console.log(
+        "🧠 Detected deep structured system design feedback. Remapping..."
+      );
+
+      const extractSection = (section) => {
+        const s = feedback.feedback[section];
+        if (!s) return "";
+        return [...(s.strengths || []), ...(s.suggestions || [])].join(" ");
+      };
+
+      feedback = {
+        correctness: extractSection("database_design"),
+        efficiency:
+          extractSection("scalability") +
+          " " +
+          extractSection("availability_and_fault_tolerance") +
+          " " +
+          extractSection("caching"),
+        suggestions:
+          extractSection("analytics") +
+          " " +
+          extractSection("overall_design") +
+          " " +
+          extractSection("short_url_generation"),
+        grade: "pass",
+      };
+    }
   } catch {
     // fallback in case OpenAI wraps in ```json blocks
     try {
@@ -253,6 +469,56 @@ app.post("/api/evaluate", async (req, res) => {
       }
 
       feedback = JSON.parse(cleaned);
+      // ✅ NEW: Handle OpenAI feedback with aspect/comment structure
+      if (
+        !feedback.correctness &&
+        !feedback.efficiency &&
+        !feedback.suggestions &&
+        Array.isArray(feedback.feedback)
+      ) {
+        console.log(
+          "🧠 Detected feedback array with 'aspect' fields. Remapping..."
+        );
+
+        const byAspect = {
+          correctness: [],
+          efficiency: [],
+          suggestions: [],
+        };
+
+        for (const item of feedback.feedback) {
+          const aspect = item.aspect?.toLowerCase() || "";
+          const comment = item.comment || "";
+
+          if (
+            aspect.includes("database") ||
+            aspect.includes("url generation") ||
+            aspect.includes("design")
+          ) {
+            byAspect.correctness.push(comment);
+          } else if (
+            aspect.includes("scalability") ||
+            aspect.includes("availability") ||
+            aspect.includes("caching") ||
+            aspect.includes("performance")
+          ) {
+            byAspect.efficiency.push(comment);
+          } else {
+            byAspect.suggestions.push(comment);
+          }
+        }
+
+        feedback = {
+          correctness:
+            byAspect.correctness.join(" ") || "No correctness feedback.",
+          efficiency:
+            byAspect.efficiency.join(" ") || "No efficiency feedback.",
+          suggestions:
+            byAspect.suggestions.join(" ") || "No suggestions available.",
+          grade: "pass",
+        };
+      }
+
       // 🧠 Step 2: Handle OpenAI feedback array format
       if (Array.isArray(feedback)) {
         const converted = {
@@ -311,24 +577,247 @@ app.post("/api/evaluate", async (req, res) => {
   const user = await User.findById(decoded.userId);
 
   // Prepare feedback + push to user
-  const newAnswer = {
-    question,
-    userAnswer: answer,
-    feedback,
-    topic: req.body.topic || "General",
-    difficulty: req.body.difficulty || "Medium",
-    date: new Date(),
-  };
-  if (isDuplicateAnswer(user, question, answer)) {
-    return res
-      .status(409)
-      .json({ error: "Duplicate answer detected. Try something new!" });
+
+  // if (isDuplicateAnswer(user, question, answer)) {
+  //   return res
+  //     .status(409)
+  //     .json({ error: "Duplicate answer detected. Try something new!" });
+  // }
+  // ✅ NEW: Handle numeric-scored structured feedback with section.feedback and ratings
+  if (
+    !feedback.correctness &&
+    !feedback.efficiency &&
+    !feedback.suggestions &&
+    typeof feedback.feedback === "object" &&
+    Object.values(feedback.feedback).every(
+      (v) => typeof v === "object" && "feedback" in v
+    )
+  ) {
+    console.log("🧠 Remapping numeric feedback with per-section ratings...");
+
+    const suggestionParts = [];
+    let totalScore = 0;
+    let count = 0;
+
+    for (const section of Object.values(feedback.feedback)) {
+      if (section.feedback) {
+        suggestionParts.push(section.feedback);
+      }
+      for (const key in section) {
+        if (typeof section[key] === "number") {
+          totalScore += section[key];
+          count++;
+        }
+      }
+    }
+
+    feedback.correctness = suggestionParts[0] || "No correctness feedback.";
+    feedback.efficiency = suggestionParts[1] || "No efficiency feedback.";
+    feedback.suggestions =
+      suggestionParts.slice(2).join(" ") || "No suggestions available.";
+
+    const avg = totalScore / (count || 1);
+    feedback.grade = avg < 4 ? "fail" : "pass";
+
+    suggestions = feedback.suggestions;
+    grade = feedback.grade;
   }
 
   let grade = (feedback.grade || "").toLowerCase().trim();
   const correctness = (feedback.correctness || "").toLowerCase();
   const efficiency = (feedback.efficiency || "").toLowerCase();
-  const suggestions = (feedback.suggestions || "").toLowerCase();
+  let suggestions = "";
+
+  // ✅ Handle string suggestions
+  if (typeof feedback.suggestions === "string" && feedback.suggestions.trim()) {
+    suggestions = feedback.suggestions.trim();
+  }
+  // ✅ Handle array of suggestion objects
+  else if (
+    Array.isArray(feedback.feedback?.suggestions) &&
+    typeof feedback.suggestions !== "string"
+  ) {
+    feedback.suggestions = feedback.feedback.suggestions
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (typeof item === "object" && item.suggestion) return item.suggestion;
+        return JSON.stringify(item);
+      })
+      .join(" ");
+    suggestions = feedback.suggestions;
+  }
+
+  // ✅ Handle object suggestions
+  else if (
+    typeof feedback.suggestions === "object" &&
+    feedback.suggestions !== null
+  ) {
+    suggestions = Object.values(feedback.suggestions).join(" ").trim();
+  }
+
+  // ✅ Fallback: try to extract from other known fields
+  if (!suggestions) {
+    if (feedback.overall_suggestions) {
+      suggestions = feedback.overall_suggestions;
+    } else if (typeof feedback.overall === "string") {
+      suggestions = feedback.overall;
+    } else if (feedback.improvements) {
+      suggestions = Array.isArray(feedback.improvements)
+        ? feedback.improvements.join(" ")
+        : feedback.improvements;
+    } else if (feedback.overall?.comments) {
+      suggestions = Array.isArray(feedback.overall.comments)
+        ? feedback.overall.comments.join(" ")
+        : feedback.overall.comments;
+    } else if (feedback.feedback?.suggestions) {
+      suggestions = Array.isArray(feedback.feedback.suggestions)
+        ? feedback.feedback.suggestions.join(" ")
+        : feedback.feedback.suggestions;
+    }
+  }
+  // 🔥 Handle category-based design feedback from OpenAI (e.g., DesignComponents, Summary, etc.)
+  if (
+    !feedback.correctness &&
+    !feedback.efficiency &&
+    !suggestions &&
+    (feedback.DesignComponents || feedback.SecurityMeasures || feedback.Summary)
+  ) {
+    console.log("🧠 Remapping structured architecture feedback...");
+
+    const extractSection = (section) =>
+      Object.values(section || {})
+        .map((val) => {
+          if (typeof val === "string") return val;
+          if (Array.isArray(val)) return val.join(" ");
+          return Object.values(val).join(" ");
+        })
+        .join(" ");
+
+    feedback = {
+      correctness: extractSection(feedback.DesignComponents),
+      efficiency:
+        extractSection(feedback.Scalability) +
+        " " +
+        extractSection(feedback.DataStorage),
+      suggestions:
+        extractSection(feedback.SecurityMeasures) +
+        " " +
+        (feedback.Summary || ""),
+      grade: "pass",
+    };
+
+    suggestions = feedback.suggestions;
+  }
+  // ✅ Handle structured feedback like strengths, areas_for_improvement, examples, overall_assessment
+  if (!suggestions && feedback.feedback) {
+    const fb = feedback.feedback;
+
+    if (
+      Array.isArray(fb.areas_for_improvement) ||
+      Array.isArray(fb.examples) ||
+      Array.isArray(fb.strengths) ||
+      typeof fb.overall_assessment === "string"
+    ) {
+      const suggestionParts = [];
+
+      if (Array.isArray(fb.areas_for_improvement)) {
+        suggestionParts.push(...fb.areas_for_improvement);
+      }
+
+      if (Array.isArray(fb.examples)) {
+        suggestionParts.push(...fb.examples);
+      }
+
+      if (Array.isArray(fb.strengths)) {
+        suggestionParts.push(...fb.strengths);
+      }
+
+      if (typeof fb.overall_assessment === "string") {
+        suggestionParts.push(fb.overall_assessment);
+      }
+
+      suggestions = suggestionParts.join(" ").trim();
+    }
+  }
+  // ✅ Handle nested feedback like feedback.overall_design.description, strengths, areas_for_improvement
+  if (
+    !suggestions &&
+    typeof feedback.feedback === "object" &&
+    Object.values(feedback.feedback).some(
+      (section) =>
+        typeof section === "object" &&
+        (section.areas_for_improvement ||
+          section.strengths ||
+          section.description)
+    )
+  ) {
+    console.log("🧠 Remapping nested structured feedback...");
+
+    const suggestionParts = [];
+
+    for (const section of Object.values(feedback.feedback)) {
+      if (typeof section === "object") {
+        if (Array.isArray(section.areas_for_improvement)) {
+          suggestionParts.push(...section.areas_for_improvement);
+        } else if (typeof section.areas_for_improvement === "string") {
+          suggestionParts.push(section.areas_for_improvement);
+        }
+
+        if (typeof section.strengths === "string") {
+          suggestionParts.push(section.strengths);
+        }
+
+        if (typeof section.description === "string") {
+          suggestionParts.push(section.description);
+        }
+      }
+    }
+
+    suggestions = suggestionParts.join(" ").trim();
+  }
+  // ✅ Handle array of suggestion objects
+  if (
+    Array.isArray(feedback.feedback?.suggestions) &&
+    typeof feedback.suggestions !== "string"
+  ) {
+    feedback.suggestions = feedback.feedback.suggestions
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (typeof item === "object" && item.suggestion) return item.suggestion;
+        return JSON.stringify(item);
+      })
+      .join(" ");
+    suggestions = feedback.suggestions;
+  }
+
+  // ✅ Remap feedback.feedback.advice if present
+  if (
+    !suggestions &&
+    feedback.feedback &&
+    feedback.feedback.advice &&
+    typeof feedback.feedback.advice === "object"
+  ) {
+    console.log("🧠 Extracting suggestions from feedback.feedback.advice...");
+    suggestions = Object.values(feedback.feedback.advice).join(" ").trim();
+  }
+  console.log("✨ Advice-based suggestions extracted:", suggestions);
+
+  feedback.suggestions = suggestions || "No suggestions available.";
+
+  // 🧹 Ensure suggestions is a string before saving
+  if (typeof feedback.suggestions !== "string") {
+    try {
+      feedback.suggestions = JSON.stringify(feedback.suggestions);
+    } catch {
+      feedback.suggestions = "Suggestions formatting error.";
+    }
+  }
+
+  if (typeof feedback.suggestions !== "string") {
+    feedback.suggestions = JSON.stringify(feedback.suggestions);
+  }
+
+  console.log("✅ Final Suggestions Field:", feedback.suggestions);
 
   if (!["pass", "fail"].includes(grade)) {
     const combined = `${correctness} ${efficiency} ${suggestions}`;
@@ -340,69 +829,25 @@ app.post("/api/evaluate", async (req, res) => {
       combined.includes("success");
 
     grade = likelyPass ? "pass" : "fail";
-    feedback.grade = grade;
-    if (!feedback.grade && grade) {
-      console.log(
-        "⚠️ Grade was missing from AI response. Assigned fallback grade:",
-        grade
-      );
-    }
-
-    // ✅ Block 1: Evaluation-based fallback
-    if (!feedback.correctness) {
-      feedback.correctness =
-        feedback.evaluation?.overall_structure?.feedback ||
-        feedback.components?.feedback ||
-        null;
-    }
-
-    if (!feedback.efficiency) {
-      feedback.efficiency =
-        feedback.evaluation?.scalability_considerations?.feedback ||
-        feedback.evaluation?.components?.feedback ||
-        null;
-    }
-
-    if (!feedback.suggestions) {
-      const improvements = Object.values(
-        feedback.evaluation?.areas_for_improvement || {}
-      ).join(" ");
-      feedback.suggestions = improvements || null;
-    }
-
-    // ✅ Block 2: fallback for new structured format
-    if (!feedback.correctness) {
-      feedback.correctness =
-        feedback.overview?.strengths?.join(" ") ||
-        feedback.components?.authentication?.strengths?.join(" ") ||
-        "No correctness feedback.";
-    }
-
-    if (!feedback.efficiency) {
-      feedback.efficiency =
-        feedback.scalability?.strengths?.join(" ") ||
-        feedback.communication?.strengths?.join(" ") ||
-        "No efficiency feedback.";
-    }
-
-    if (!feedback.suggestions) {
-      const improvementBlocks = [
-        ...(feedback.overview?.suggestions || []),
-        ...(feedback.components?.authentication?.suggestions || []),
-        ...(feedback.components?.catalog?.suggestions || []),
-        ...(feedback.components?.shoppingCart_and_inventory?.suggestions || []),
-        ...(feedback.components?.payment?.suggestions || []),
-        ...(feedback.components?.recommendations?.suggestions || []),
-        ...(feedback.communication?.suggestions || []),
-        ...(feedback.scalability?.suggestions || []),
-      ];
-      feedback.suggestions =
-        improvementBlocks.join(" ") || "No suggestions available.";
+  }
+  console.log("🎯 Grade value:", grade);
+  // 🛠 Ensure suggestions is a string before saving
+  if (typeof feedback.suggestions !== "string") {
+    try {
+      feedback.suggestions = JSON.stringify(feedback.suggestions);
+    } catch {
+      feedback.suggestions = "Suggestions formatting error.";
     }
   }
 
-  console.log("📊 Parsed feedback:", feedback);
-  console.log("🎯 Grade value:", grade);
+  const newAnswer = {
+    question,
+    userAnswer: answer,
+    feedback,
+    topic: req.body.topic || "General",
+    difficulty: req.body.difficulty || "Medium",
+    date: new Date(),
+  };
 
   user.answers.push(newAnswer);
 
@@ -422,6 +867,74 @@ app.post("/api/evaluate", async (req, res) => {
     score: user.score,
     answers: user.answers.length,
   });
+  // ✅ Final fallback in case all fields are still empty
+  // ✅ Final fallback: convert structured feedback if main fields are empty
+  if (
+    !feedback.correctness &&
+    !feedback.efficiency &&
+    !feedback.suggestions &&
+    feedback.feedback &&
+    typeof feedback.feedback === "object"
+  ) {
+    console.log("🧠 Detected alternate structured feedback. Converting...");
+    const fb = feedback.feedback;
+
+    const extractSection = (section) => {
+      const s = fb[section];
+      if (!s) return "";
+      return [
+        s.comment || "",
+        ...(s.strengths || []),
+        ...(s.suggestions || []),
+        ...(s.improvements || []),
+      ].join(" ");
+    };
+
+    feedback = {
+      correctness:
+        extractSection("1. Database Schema Design") +
+        " " +
+        extractSection("3. URL Generation") +
+        " " +
+        extractSection("database_design") +
+        " " +
+        extractSection("short_url_generation"),
+      efficiency:
+        extractSection("2. Scalability Strategies") +
+        " " +
+        extractSection("4. High Availability and Fault Tolerance") +
+        " " +
+        extractSection("5. Caching Strategies") +
+        " " +
+        extractSection("scalability") +
+        " " +
+        extractSection("high_availability") +
+        " " +
+        extractSection("caching_strategy"),
+      suggestions:
+        extractSection("6. Analytics Implementation") +
+        " " +
+        extractSection("Overall Design") +
+        " " +
+        extractSection("analytics") +
+        " " +
+        extractSection("overall_design"),
+      grade: "pass",
+    };
+
+    // ✅ Use fb.evaluation instead of feedback.evaluation
+    const evalScores = fb.evaluation || {};
+    const scoreSum = [
+      evalScores.clarity,
+      evalScores.relevance,
+      evalScores.depth,
+      evalScores.communicationStrategies,
+      evalScores.impact,
+    ].reduce((a, b) => a + (b || 0), 0);
+
+    const avg = scoreSum / 5;
+    if (avg < 4) feedback.grade = "fail";
+  }
 
   res.json({ feedback });
 });
@@ -510,6 +1023,90 @@ app.post("/api/execute", async (req, res) => {
       try {
         const cleaned = aiFeedback.replace(/```json|```/g, "").trim();
         feedback = JSON.parse(cleaned);
+        // ✅ Handle alternate structured feedback like clarity/impact/etc.
+        if (
+          !feedback.correctness &&
+          !feedback.efficiency &&
+          !feedback.suggestions &&
+          feedback.clarity &&
+          feedback.impact
+        ) {
+          console.log(
+            "🧠 Detected alternate clarity-based feedback. Remapping..."
+          );
+
+          feedback = {
+            correctness:
+              feedback.clarity?.comments || "No correctness feedback.",
+            efficiency:
+              feedback.engagement?.comments || "No efficiency feedback.",
+            suggestions:
+              feedback.impact?.comments || "No suggestions available.",
+            grade: "pass",
+          };
+
+          const scores = [
+            feedback.clarity?.score,
+            feedback.completeness?.score,
+            feedback.specificity?.score,
+            feedback.relevance?.score,
+            feedback.engagement?.score,
+            feedback.impact?.score,
+          ].filter((n) => typeof n === "number");
+
+          const avg = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
+          if (avg < 4) feedback.grade = "fail";
+        }
+        // ✅ NEW: Handle OpenAI feedback with aspect/comment structure
+        if (
+          !feedback.correctness &&
+          !feedback.efficiency &&
+          !feedback.suggestions &&
+          Array.isArray(feedback.feedback)
+        ) {
+          console.log(
+            "🧠 Detected feedback array with 'aspect' fields. Remapping..."
+          );
+
+          const byAspect = {
+            correctness: [],
+            efficiency: [],
+            suggestions: [],
+          };
+
+          for (const item of feedback.feedback) {
+            const aspect = item.aspect?.toLowerCase() || "";
+            const comment = item.comment || "";
+
+            if (
+              aspect.includes("database") ||
+              aspect.includes("url generation") ||
+              aspect.includes("design")
+            ) {
+              byAspect.correctness.push(comment);
+            } else if (
+              aspect.includes("scalability") ||
+              aspect.includes("availability") ||
+              aspect.includes("caching") ||
+              aspect.includes("performance")
+            ) {
+              byAspect.efficiency.push(comment);
+            } else {
+              byAspect.suggestions.push(comment);
+            }
+          }
+
+          feedback = {
+            correctness:
+              byAspect.correctness.join(" ") || "No correctness feedback.",
+            efficiency:
+              byAspect.efficiency.join(" ") || "No efficiency feedback.",
+            suggestions:
+              byAspect.suggestions.join(" ") || "No suggestions available.",
+            grade: "pass",
+          };
+        }
+
         // 🧠 Step 2: Handle OpenAI feedback array format
         if (Array.isArray(feedback)) {
           const converted = {
