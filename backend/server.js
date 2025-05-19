@@ -242,6 +242,82 @@ app.post("/api/evaluate", async (req, res) => {
 
   const data = await response.json();
   let feedback;
+  // ✅ Handle contentEvaluation format from OpenAI
+  if (
+    !feedback &&
+    data.choices &&
+    data.choices[0]?.message?.content.includes('"contentEvaluation"')
+  ) {
+    console.log("🧠 Detected 'contentEvaluation' format. Remapping...");
+
+    try {
+      const rawContent = data.choices[0]?.message?.content || "";
+      const cleaned = rawContent.replace(/```json|```/g, "").trim();
+      const jsonStart = cleaned.indexOf("{");
+      const parsed = JSON.parse(cleaned.slice(jsonStart));
+
+      const sections = parsed.contentEvaluation;
+
+      const extract = (key) =>
+        Object.values(sections)
+          .map((sec) => sec[key])
+          .filter(Boolean)
+          .join(" ");
+
+      feedback = {
+        correctness: extract("commendation") || "No correctness feedback.",
+        efficiency: extract("recommendation") || "No efficiency feedback.",
+        suggestions: extract("recommendation") || "No suggestions available.",
+        grade: "pass",
+      };
+
+      console.log("✅ Feedback remapped from contentEvaluation:", feedback);
+    } catch (err) {
+      console.log("❌ Failed to parse 'contentEvaluation' block:", err.message);
+    }
+  }
+  // ✅ Handle structured feedback with content_comprehension, technical_accuracy, etc.
+  if (
+    !feedback &&
+    data.choices?.[0]?.message?.content.includes("content_comprehension")
+  ) {
+    try {
+      const raw = data.choices[0].message.content
+        .replace(/```json|```/g, "")
+        .trim();
+      const parsed = JSON.parse(raw);
+
+      const extract = (section) => {
+        if (!section) return "";
+        return [
+          ...(section.strengths || []),
+          ...(section.areas_of_improvement || []),
+          section.feedback || "",
+        ].join(" ");
+      };
+
+      feedback = {
+        correctness: extract(parsed.technical_accuracy),
+        efficiency: extract(parsed.completeness),
+        suggestions:
+          [extract(parsed.innovation), extract(parsed.clarity_and_structure)]
+            .join(" ")
+            .trim() || "No suggestions available.",
+        grade: "pass",
+      };
+
+      console.log(
+        "✅ Feedback remapped from structured evaluation format:",
+        feedback
+      );
+    } catch (err) {
+      console.log(
+        "❌ Failed to parse structured evaluation block:",
+        err.message
+      );
+    }
+  }
+
   if (data.feedback) {
     console.log("✅ Using feedback directly from OpenAI response");
 
@@ -819,18 +895,86 @@ app.post("/api/evaluate", async (req, res) => {
 
   console.log("✅ Final Suggestions Field:", feedback.suggestions);
 
-  if (!["pass", "fail"].includes(grade)) {
-    const combined = `${correctness} ${efficiency} ${suggestions}`;
-    const likelyPass =
-      combined.includes("correct") ||
-      combined.includes("efficient") ||
-      combined.includes("well done") ||
-      combined.includes("works") ||
-      combined.includes("success");
+  const combined = `${correctness} ${efficiency} ${suggestions}`.toLowerCase();
 
-    grade = likelyPass ? "pass" : "fail";
+  const keywords = [
+    "correct",
+    "efficient",
+    "well done",
+    "structured",
+    "clear explanation",
+    "scalable",
+    "secure",
+    "reasonable design",
+    "good choice",
+    "reliable",
+    "logical",
+    "realistic",
+  ];
+
+  let matchCount = keywords.filter((k) => combined.includes(k)).length;
+
+  // 🎯 Relaxed grading logic — pass if there's decent structure or effort
+  if (!["pass", "fail"].includes(grade)) {
+    const evaluation = feedback.evaluation || feedback.feedback || {};
+    const strengthsCount = Object.values(evaluation).filter((section) => {
+      return (
+        section &&
+        typeof section === "object" &&
+        (Array.isArray(section.strengths) || Array.isArray(section.comments)) &&
+        (section.strengths?.length > 0 || section.comments?.length > 0)
+      );
+    }).length;
+
+    const totalSections = Object.keys(evaluation).length;
+
+    if (matchCount >= 2 || strengthsCount >= 2 || totalSections >= 4) {
+      console.log("🎓 Soft pass applied — structure or strengths detected.");
+      grade = "pass";
+    } else {
+      console.log("❌ Not enough structure or strengths — grading as fail.");
+      grade = "fail";
+    }
   }
+
+  // ✅ Additional soft grading logic for structured feedback
+  if (!["pass", "fail"].includes(grade)) {
+    const evaluation = feedback.evaluation || feedback.feedback || {};
+    const strengthsCount = Object.values(evaluation).filter((section) => {
+      return (
+        section &&
+        typeof section === "object" &&
+        Array.isArray(section.strengths) &&
+        section.strengths.length > 0
+      );
+    }).length;
+
+    if (strengthsCount >= 4) {
+      console.log("🎓 Soft pass applied — 4+ structured strengths found.");
+      grade = "pass";
+    }
+  }
+
+  // ✅ Soft override: Learning mode logic
+  if (!["pass", "fail"].includes(grade)) {
+    const fb = feedback.feedback || {};
+
+    // Count strengths in nested structured feedback
+    const sectionStrengths = Object.values(fb).filter((section) => {
+      if (!section || typeof section !== "object") return false;
+      return Array.isArray(section.strengths) && section.strengths.length >= 1;
+    }).length;
+
+    // If at least 3 sections have strengths, override to pass
+    if (sectionStrengths >= 3) {
+      console.log("🎓 Soft pass applied — enough strengths detected.");
+      grade = "pass";
+    }
+  }
+
   console.log("🎯 Grade value:", grade);
+  feedback.grade = grade; // ✅ Assign final grade to feedback
+
   // 🛠 Ensure suggestions is a string before saving
   if (typeof feedback.suggestions !== "string") {
     try {
@@ -838,6 +982,34 @@ app.post("/api/evaluate", async (req, res) => {
     } catch {
       feedback.suggestions = "Suggestions formatting error.";
     }
+  }
+  // ✅ Fallback grade logic if still missing
+  if (!["pass", "fail"].includes(grade)) {
+    const combinedText =
+      `${correctness} ${efficiency} ${suggestions}`.toLowerCase();
+    const passSignals = [
+      "correct",
+      "efficient",
+      "well done",
+      "scalable",
+      "good",
+      "clear",
+      "secure",
+      "logical",
+    ];
+    const positiveMentions = passSignals.filter((word) =>
+      combinedText.includes(word)
+    ).length;
+
+    if (positiveMentions >= 2) {
+      grade = "pass";
+      console.log("🎓 Fallback grade: PASS applied based on keywords");
+    } else {
+      grade = "fail";
+      console.log("❌ Fallback grade: FAIL applied due to weak content");
+    }
+
+    feedback.grade = grade;
   }
 
   const newAnswer = {
@@ -848,6 +1020,9 @@ app.post("/api/evaluate", async (req, res) => {
     difficulty: req.body.difficulty || "Medium",
     date: new Date(),
   };
+  if (feedback.structure && typeof feedback.structure === "object") {
+    feedback.structure = JSON.stringify(feedback.structure);
+  }
 
   user.answers.push(newAnswer);
 
@@ -934,6 +1109,22 @@ app.post("/api/evaluate", async (req, res) => {
 
     const avg = scoreSum / 5;
     if (avg < 4) feedback.grade = "fail";
+  }
+  if (!["pass", "fail"].includes(feedback.grade?.toLowerCase?.())) {
+    const correctnessText = (feedback.correctness || "").toLowerCase();
+    const efficiencyText = (feedback.efficiency || "").toLowerCase();
+
+    if (
+      correctnessText.includes("correct") ||
+      efficiencyText.includes("efficient") ||
+      efficiencyText.includes("o(1)")
+    ) {
+      feedback.grade = "pass";
+      console.log("🛠 Fallback grade: PASS");
+    } else {
+      feedback.grade = "fail";
+      console.log("🛠 Fallback grade: FAIL");
+    }
   }
 
   res.json({ feedback });

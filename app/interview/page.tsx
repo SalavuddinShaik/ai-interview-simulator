@@ -299,49 +299,77 @@ export default function Interview() {
       // ✅ Log backend response
       console.log("🧠 Received from /api/evaluate:", data);
       if (data.feedback) {
-        if (
-          data.feedback &&
-          typeof data.feedback === "object" &&
-          !data.feedback.correctness
-        ) {
+        if (data.feedback) {
           const fb = data.feedback;
+          if (fb.grade?.toLowerCase() === "pass") {
+            console.log("🎉 Force treating as pass due to grade === pass");
+          }
 
-          const extractText = (section: any) => {
-            const strengths = section.strengths?.join(" ") || "";
-            const improvements = section.areas_for_improvement?.join(" ") || "";
-            return `${strengths} ${improvements}`.trim();
-          };
+          if (
+            fb.overall_feedback ||
+            fb.components_feedback ||
+            fb.additional_feedback
+          ) {
+            const structuredFeedback: Feedback = {
+              correctness: fb.overall_feedback || "",
+              efficiency: Object.values(fb.components_feedback || {})
+                .map((comp: any) => comp.feedback)
+                .join(" "),
+              suggestions: Object.values(fb.additional_feedback || {}).join(
+                " "
+              ),
+              grade: fb.grade || "fail",
+            };
+            setFeedback(structuredFeedback);
+          } else {
+            const fallback: Feedback = {
+              correctness: fb.correctness || "",
+              efficiency: fb.efficiency || "",
+              suggestions: fb.suggestions || "",
+              grade: fb.grade || "",
+            };
+            setFeedback(fallback);
+          }
 
-          const flatFeedback: Feedback = {
-            correctness:
-              extractText(fb.data_storage || {}) +
-              " " +
-              extractText(fb.unique_key_generation || ""),
-            efficiency:
-              extractText(fb.scalability || {}) +
-              " " +
-              extractText(fb.redundancy_and_reliability || {}),
-            suggestions:
-              extractText(fb.security || {}) +
-              " " +
-              extractText(fb.overall_design || ""),
-            grade: data.grade || "fail",
-          };
-
-          setFeedback(flatFeedback);
+          localStorage.setItem("userAnswer", answer);
+          localStorage.removeItem("aiFeedback");
+          localStorage.setItem("aiFeedback", JSON.stringify(data.feedback));
+          localStorage.removeItem("currentQuestion");
+          await refreshUserData();
         } else {
           setFeedback(data.feedback as Feedback);
         }
 
         localStorage.setItem("userAnswer", answer);
-        localStorage.setItem("aiFeedback", JSON.stringify(data.feedback));
-        localStorage.removeItem("currentQuestion");
-        await refreshUserData();
+        // Clear previous and store fresh feedback
 
-        if (data.feedback.grade === "pass") {
+        const rawFeedback = data.feedback;
+        const normalize = (text?: string) => (text || "").toLowerCase().trim();
+
+        const softPass =
+          normalize(rawFeedback.correctness).includes("correct") ||
+          normalize(rawFeedback.efficiency).includes("efficient") ||
+          normalize(rawFeedback.suggestions).includes("well done") ||
+          normalize(rawFeedback.suggestions).includes("solid design") ||
+          normalize(rawFeedback.suggestions).includes("strong understanding");
+
+        // ⛔ strict fail from OpenAI, but hints it's actually good
+        if (rawFeedback.grade === "fail" && softPass) {
+          alert(
+            "⚠️ This looks like a good answer, but was graded as 'fail'. You can improve slightly and resubmit."
+          );
+        }
+
+        const passed = String(rawFeedback.grade || "").toLowerCase() === "pass";
+
+        // ✅ Play appropriate sound and confetti
+        if (passed) {
           triggerConfetti();
           playSound("success.mp3");
           playSound("submit.mp3");
+        } else if (softPass) {
+          triggerConfetti();
+          playSound("success.mp3");
         } else {
           playSound("fail.mp3");
         }
@@ -390,7 +418,24 @@ export default function Interview() {
     localStorage.removeItem("userAnswer");
     localStorage.removeItem("aiFeedback");
   };
+  const getFallbackFeedback = (
+    label: string,
+    value: string | undefined
+  ): string => {
+    const lower = value?.toLowerCase().trim() || "";
+    if (
+      lower &&
+      lower !== "no correctness feedback." &&
+      lower !== "no efficiency feedback." &&
+      lower !== "no feedback available."
+    ) {
+      return value!;
+    }
 
+    return `No direct ${label.toLowerCase()} feedback. Check suggestions instead.`;
+  };
+
+  console.log("🪵 Feedback state:", feedback);
   return (
     <div className="flex flex-col items-center justify-start min-h-screen p-6 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white font-[Inter]">
       <motion.h1
@@ -638,20 +683,23 @@ export default function Interview() {
             )
           </h3>
 
-          {feedback.grade && (
+          {feedback && (
             <div className="mb-6 text-center">
-              <span
-                className={`text-md font-semibold px-6 py-2 rounded-full ${
-                  feedback.grade === "pass" ? "bg-green-600" : "bg-red-600"
-                } text-white shadow-md`}
-              >
-                {(feedback.grade || "").toLowerCase() === "pass"
-                  ? "✅ Passed"
-                  : "❌ Failed"}
-              </span>
+              {String(feedback.grade || "")
+                .trim()
+                .toLowerCase() === "pass" ? (
+                <span className="text-md font-semibold px-6 py-2 rounded-full bg-green-600 text-white shadow-md">
+                  ✅ Passed
+                </span>
+              ) : (
+                <span className="text-md font-semibold px-6 py-2 rounded-full bg-red-600 text-white shadow-md">
+                  ❌ Failed
+                </span>
+              )}
             </div>
           )}
-          {feedback.grade === "fail" &&
+
+          {(feedback.grade || "").toLowerCase() === "fail" &&
             (feedback.correctness?.includes("correct") ||
               feedback.efficiency?.includes("efficient") ||
               feedback.suggestions?.includes("well done")) && (
@@ -661,45 +709,46 @@ export default function Interview() {
               </p>
             )}
 
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-gray-900 border border-green-500 rounded-xl p-4 shadow">
-              <h4 className="text-green-400 font-semibold mb-2">
-                ✅ Correctness
-              </h4>
-              <p className="text-gray-300 text-sm">
-                {feedback.correctness
-                  ?.toLowerCase()
-                  .includes("no correctness feedback")
-                  ? "No feedback available."
-                  : feedback.correctness}
-              </p>
+          {(feedback.grade || "").toLowerCase() === "fail" && (
+            <div className="text-sm text-yellow-400 text-center mt-2">
+              💡 Tip: Even good answers may sometimes be marked as failed. Try
+              tweaking your response or adding more detail and submit again.
             </div>
+          )}
 
-            <div className="bg-gray-900 border border-yellow-400 rounded-xl p-4 shadow">
-              <h4 className="text-yellow-300 font-semibold mb-2">
-                ⚡ Efficiency
-              </h4>
-              <p className="text-gray-300 text-sm">
-                {feedback.efficiency
-                  ?.toLowerCase()
-                  .includes("no efficiency feedback")
-                  ? "No feedback available."
-                  : feedback.efficiency}
-              </p>
-            </div>
+          <div className="grid gap-4 md:grid-cols-1">
+            {feedback.correctness && (
+              <div className="bg-gray-900 border border-green-500 rounded-xl p-4 shadow">
+                <h4 className="text-green-400 font-semibold mb-2">
+                  ✅ Correctness
+                </h4>
+                <p className="text-gray-300 text-sm">
+                  {getFallbackFeedback("Correctness", feedback.correctness)}
+                </p>
+              </div>
+            )}
 
-            <div className="bg-gray-900 border border-blue-400 rounded-xl p-4 shadow">
-              <h4 className="text-blue-400 font-semibold mb-2">
-                📌 Suggestions
-              </h4>
-              <p className="text-gray-300 text-sm">
-                {feedback.suggestions
-                  ?.toLowerCase()
-                  .includes("no suggestions available")
-                  ? "No feedback available."
-                  : feedback.suggestions}
-              </p>
-            </div>
+            {feedback.efficiency && (
+              <div className="bg-gray-900 border border-yellow-400 rounded-xl p-4 shadow">
+                <h4 className="text-yellow-300 font-semibold mb-2">
+                  ⚡ Efficiency
+                </h4>
+                <p className="text-gray-300 text-sm">
+                  {getFallbackFeedback("Efficiency", feedback.efficiency)}
+                </p>
+              </div>
+            )}
+
+            {feedback.suggestions && (
+              <div className="bg-gray-900 border border-blue-400 rounded-xl p-4 shadow">
+                <h4 className="text-blue-400 font-semibold mb-2">
+                  📌 Suggestions
+                </h4>
+                <p className="text-gray-300 text-sm">
+                  {getFallbackFeedback("Suggestions", feedback.suggestions)}
+                </p>
+              </div>
+            )}
           </div>
         </motion.div>
       )}
