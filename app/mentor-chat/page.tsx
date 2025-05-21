@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Listbox } from "@headlessui/react";
 import { ChevronUpDownIcon, CheckIcon } from "@heroicons/react/20/solid";
+import Image from "next/image";
 
 const mentors = {
   "The Recruiter": "/avatars/recruiter.jpg",
@@ -21,7 +22,8 @@ export default function MentorChat() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [selectedMentor, setSelectedMentor] = useState("The Recruiter");
+  const [selectedMentor, setSelectedMentor] =
+    useState<keyof typeof mentors>("The Recruiter");
 
   const chatRef = useRef<HTMLDivElement>(null);
 
@@ -156,7 +158,7 @@ export default function MentorChat() {
               }`}
             >
               {msg.from === "mentor" && (
-                <img
+                <Image
                   src={mentors[selectedMentor]}
                   alt="mentor avatar"
                   className="w-10 h-10 rounded-full mr-3 border-2 border-purple-500 shadow-md"

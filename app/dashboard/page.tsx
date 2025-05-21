@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import AuthContext from "@/context/AuthContext";
 import { fetchUserData } from "@/services/api";
 import { motion } from "framer-motion";
-
+const motivationalQuotes = [
+  "Keep pushing your limits!",
+  "Every interview makes you sharper!",
+  "Consistency beats intensity.",
+  "You’re one step closer to your dream job!",
+];
 export default function Dashboard() {
   const router = useRouter();
   const { token, user } = useContext(AuthContext);
@@ -31,13 +36,6 @@ export default function Dashboard() {
   ];
   const achievements = ["🎯 First Answer", "💯 100 XP", "🏆 3-Day Streak"];
 
-  const motivationalQuotes = [
-    "Keep pushing your limits!",
-    "Every interview makes you sharper!",
-    "Consistency beats intensity.",
-    "You’re one step closer to your dream job!",
-  ];
-
   useEffect(() => {
     const fetchData = async () => {
       if (!token) return;
@@ -52,7 +50,8 @@ export default function Dashboard() {
 
       const passedAnswers =
         data.answers?.filter(
-          (a) => a.feedback?.grade?.toLowerCase() === "pass"
+          (a: { feedback?: { grade?: string } }) =>
+            a.feedback?.grade?.toLowerCase() === "pass"
         ) || [];
 
       const last = passedAnswers[passedAnswers.length - 1];
@@ -210,36 +209,41 @@ export default function Dashboard() {
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {Object.entries(skills).map(([key, value]) => (
-            <div
-              key={key}
-              className="rounded-2xl p-4 border border-gray-700 shadow-[0_0_12px_rgba(124,58,237,0.4)] bg-gradient-to-br from-[#1e1e2f] to-[#111118] transition hover:shadow-lg hover:scale-[1.02]"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-gray-300 capitalize">
-                  {skillLabels[key] || key}
-                </span>
-                <span className="text-sm font-bold text-white">
-                  {Math.min(value, 10).toFixed(1)}/10
-                </span>
+          {Object.entries(skills).map(([key, value]) => {
+            const numericValue = value as number;
+
+            return (
+              <div
+                key={key}
+                className="rounded-2xl p-4 border border-gray-700 shadow-[0_0_12px_rgba(124,58,237,0.4)] bg-gradient-to-br from-[#1e1e2f] to-[#111118] transition hover:shadow-lg hover:scale-[1.02]"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-gray-300 capitalize">
+                    {skillLabels[key as keyof typeof skillLabels] || key}
+                  </span>
+                  <span className="text-sm font-bold text-white">
+                    {Math.min(numericValue, 10).toFixed(1)}/10
+                  </span>
+                </div>
+
+                <div className="w-full bg-gray-700 rounded-full h-3">
+                  <div
+                    className={`h-full rounded-full ${
+                      numericValue >= 7
+                        ? "bg-green-400"
+                        : numericValue >= 4
+                        ? "bg-yellow-400"
+                        : "bg-red-400"
+                    }`}
+                    style={{
+                      width: `${(Math.min(numericValue, 10) / 10) * 100}%`,
+                      transition: "width 0.5s ease-in-out",
+                    }}
+                  ></div>
+                </div>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-3">
-                <div
-                  className={`h-full rounded-full ${
-                    value >= 7
-                      ? "bg-green-400"
-                      : value >= 4
-                      ? "bg-yellow-400"
-                      : "bg-red-400"
-                  }`}
-                  style={{
-                    width: `${(Math.min(value, 10) / 10) * 100}%`,
-                    transition: "width 0.5s ease-in-out",
-                  }}
-                ></div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

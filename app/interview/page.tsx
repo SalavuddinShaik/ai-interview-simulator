@@ -6,6 +6,41 @@ import AuthContext from "../../context/AuthContext";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import Editor from "@monaco-editor/react";
+type ExecutionFeedback = {
+  correctness?: string;
+  efficiency?: string;
+  suggestions?: string;
+};
+
+type SpeechRecognitionType = {
+  new (): SpeechRecognitionInstance;
+};
+
+type CustomSpeechRecognitionEvent = {
+  results: {
+    [key: number]: {
+      [key: number]: {
+        transcript: string;
+      };
+    };
+  };
+};
+
+type SpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: (event: CustomSpeechRecognitionEvent) => void;
+  onerror: (event: Event) => void;
+  start: () => void;
+};
+declare global {
+  interface Window {
+    SpeechRecognition: SpeechRecognitionType;
+    webkitSpeechRecognition: SpeechRecognitionType;
+  }
+}
+
 type Feedback = {
   grade?: string;
   correctness?: string;
@@ -55,7 +90,9 @@ export default function Interview() {
   const [questionGenerated, setQuestionGenerated] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("Python");
   const [executionOutput, setExecutionOutput] = useState("");
-  const [executionFeedback, setExecutionFeedback] = useState(null);
+  const [executionFeedback, setExecutionFeedback] =
+    useState<ExecutionFeedback | null>(null);
+
   const isCodingTopic = topic === "Data Structures" || topic === "Algorithms";
   const isTextTopic = topic === "System Design" || topic === "Behavioral";
 
@@ -124,25 +161,30 @@ export default function Interview() {
   }, [token, router]);
 
   const startSpeechRecognition = () => {
-    if (!("webkitSpeechRecognition" in window)) {
+    const SpeechRecognition =
+      typeof window !== "undefined"
+        ? window.SpeechRecognition || window.webkitSpeechRecognition
+        : null;
+
+    if (!SpeechRecognition) {
       alert(
         "Speech recognition is not supported in this browser. Try using Chrome."
       );
       return;
     }
-    const recognition = new window.webkitSpeechRecognition();
+
+    const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = "en-US";
 
     setListening(true);
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: CustomSpeechRecognitionEvent) => {
       const spokenText = event.results[0][0].transcript;
       setAnswer(spokenText);
       setListening(false);
     };
-    recognition.onerror = (error) => {
-      console.error("Speech recognition error:", error);
+    recognition.onerror = () => {
       alert("Error with speech recognition. Please try again.");
       setListening(false);
     };
@@ -313,7 +355,7 @@ export default function Interview() {
             const structuredFeedback: Feedback = {
               correctness: fb.overall_feedback || "",
               efficiency: Object.values(fb.components_feedback || {})
-                .map((comp: any) => comp.feedback)
+                .map((comp) => (comp as { feedback: string }).feedback)
                 .join(" "),
               suggestions: Object.values(fb.additional_feedback || {}).join(
                 " "
@@ -374,12 +416,22 @@ export default function Interview() {
           playSound("fail.mp3");
         }
       } else {
-        setFeedback("⚠️ AI did not return feedback. Try again.");
+        setFeedback({
+          grade: "fail",
+          correctness: "",
+          efficiency: "",
+          suggestions: "⚠️ AI did not return feedback. Try again.",
+        });
+
         playSound("fail.mp3");
       }
-    } catch (error) {
-      console.error("🚨 Error submitting answer:", error);
-      setFeedback("⚠️ An error occurred. Please try again.");
+    } catch {
+      setFeedback({
+        grade: "fail",
+        correctness: "",
+        efficiency: "",
+        suggestions: "⚠️ An error occurred. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -399,7 +451,7 @@ export default function Interview() {
       const data = await res.json();
       setExecutionOutput(data.output || "No output returned.");
       setExecutionFeedback(data.feedback || null);
-    } catch (error) {
+    } catch {
       setExecutionOutput("⚠️ Error executing code. Please try again.");
     } finally {
       setLoading(false);
@@ -451,12 +503,12 @@ export default function Interview() {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.2, duration: 0.4 }}
-        className="grid sm:grid-cols-2 gap-4 mb-8"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 w-full px-2"
       >
         <select
           className="p-3 rounded-xl bg-gray-700 text-white border border-gray-600 hover:border-blue-400"
           value={topic}
-          onChange={(e) => {
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
             const newTopic = e.target.value;
             setTopic(newTopic);
 
@@ -476,7 +528,9 @@ export default function Interview() {
         <select
           className="p-3 rounded-xl bg-gray-700 text-white border border-gray-600 hover:border-blue-400"
           value={difficulty}
-          onChange={(e) => setDifficulty(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+            setDifficulty(e.target.value)
+          }
         >
           <option value="Easy">🥗 Easy</option>
           <option value="Medium">🌮 Medium</option>
@@ -486,7 +540,7 @@ export default function Interview() {
           <select
             className="p-3 rounded-xl bg-gray-700 text-white border border-gray-600 hover:border-blue-400"
             value={selectedLanguage}
-            onChange={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
               const lang = e.target.value;
               setSelectedLanguage(lang);
               if (isCodingTopic) {
