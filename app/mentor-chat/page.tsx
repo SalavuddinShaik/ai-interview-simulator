@@ -158,11 +158,14 @@ export default function MentorChat() {
               }`}
             >
               {msg.from === "mentor" && (
-                <Image
-                  src={mentors[selectedMentor]}
-                  alt="mentor avatar"
-                  className="w-10 h-10 rounded-full mr-3 border-2 border-purple-500 shadow-md"
-                />
+                <div className="relative w-10 h-10 mr-3">
+                  <Image
+                    src={mentors[selectedMentor]}
+                    alt="mentor avatar"
+                    fill
+                    className="object-cover rounded-full border-2 border-purple-500 shadow-md"
+                  />
+                </div>
               )}
               <div
                 className={`max-w-[70%] whitespace-pre-wrap px-4 py-3 text-sm rounded-2xl shadow-md ${
