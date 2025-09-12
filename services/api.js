@@ -3,17 +3,13 @@ import axios from "axios";
 const API_URL = "http://localhost:8000/api"; // ✅ Ensure it matches backend port
 
 // ✅ Signup Function
-export const signup = async (name, email, password) => {
-  try {
-    const res = await axios.post(
-      `${API_URL}/signup`,
-      { name, email, password },
-      { withCredentials: true }
-    );
-    return res;
-  } catch (error) {
-    return error.response?.data || { message: "Signup failed" };
-  }
+// ✅ FIXED version — do NOT wrap in try/catch here
+export const signup = (name, email, password) => {
+  return axios.post(
+    `${API_URL}/signup`,
+    { name, email, password },
+    { withCredentials: true }
+  );
 };
 
 // ✅ Login Function

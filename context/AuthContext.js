@@ -27,19 +27,32 @@ export const AuthProvider = ({ children }) => {
 
   const signupUser = async (name, email, password) => {
     try {
-      const res = await signup(name, email, password);
+      const res = await signup(name, email, password); // Axios response
 
-      if (res.status === 200 && res.data?.token) {
-        alert("✅ Signup successful! Redirecting...");
+      if (res.status >= 200 && res.status < 300 && res.data?.token) {
+        alert("✅ Signup successful! Redirecting to login...");
         router.replace("/login");
-      } else if (res.status === 409) {
-        alert("⚠️ User already exists. Please login.");
-      } else {
-        alert(`⚠️ Signup failed: ${res.data?.message || "Unknown error"}`);
+        return;
       }
-    } catch (error) {
-      console.error("❌ Signup error:", error);
-      alert("❌ Signup failed. Please try again.");
+
+      const msg = res.data?.message || res.data?.error || `HTTP ${res.status}`;
+      alert(`⚠️ Signup failed: ${msg}`);
+    } catch (err) {
+      const status = err?.response?.status;
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Network error";
+
+      if (status === 409) {
+        alert("⚠️ User already exists. Please login.");
+      } else if (status === 400) {
+        alert(`⚠️ ${msg || "All fields are required."}`);
+      } else {
+        alert(`❌ Signup failed: ${msg}`);
+      }
+      console.error("❌ Signup error:", { status, msg, err });
     }
   };
 
