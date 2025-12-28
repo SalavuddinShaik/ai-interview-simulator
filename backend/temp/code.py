@@ -1,3 +1,1 @@
-n the histogram is at least 1 and at most 100,000.
-- Each height is a non-negative integer not exceeding 10,000.
-- The function should have 
+Write a function `find_and_match_pattern` to return a list of words that match the given pattern.
