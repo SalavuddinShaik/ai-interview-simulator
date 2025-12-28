@@ -10,7 +10,7 @@ const authMiddleware = require("./middleware/authMiddleware");
 const atsReviewRoute = require("./routes/ats-review");
 const resumeReviewRoute = require("./routes/resume-review");
 require("dotenv").config();
-let lastQuestion = ""; // Used to prevent duplicate questions from being generated
+let lastQuestion = "";
 console.log(
   "🔑 OPENAI Key Loaded in Backend:",
   process.env.OPENAI_API_KEY ? "✅ Exists" : "❌ Missing"
@@ -23,6 +23,8 @@ const mentorRoute = require("./routes/mentor");
 const userDataRoute = require("./routes/user-data");
 const testXpRoute = require("./routes/test-xp");
 const careerRoute = require("./routes/career");
+const userProfileRoute = require("./routes/user-profile");  // ← NEW
+
 const isInvalidAnswer = (question, answer) => {
   const q = question.toLowerCase().replace(/\s+/g, " ").trim();
   const a = answer.toLowerCase().replace(/\s+/g, " ").trim();
@@ -125,8 +127,6 @@ app.post("/api/generateQuestion", async (req, res) => {
     }
 
     const generatedQuestion = data.choices[0].message.content.trim();
-
-    // ✅ Update memory to avoid duplicate next time
     lastQuestion = generatedQuestion;
 
     return res.json({ question: generatedQuestion });
@@ -160,7 +160,6 @@ app.post("/api/evaluate", async (req, res) => {
       suggestions: "Simulated suggestion for improvement.",
       grade: req.body.grade || "pass",
     };
-    // 🛠 Ensure suggestions is a string
     if (typeof fakeFeedback.suggestions !== "string") {
       try {
         fakeFeedback.suggestions = JSON.stringify(fakeFeedback.suggestions);
@@ -189,14 +188,12 @@ app.post("/api/evaluate", async (req, res) => {
       user.score = passedCount * 50;
       user.streak += 1;
 
-      // Optional: update level
       if (user.xp >= 300) user.level = "Advanced";
       else if (user.xp >= 150) user.level = "Intermediate";
       else user.level = "Beginner";
     }
 
     await user.save();
-    // ✅ STEP 2: Update skill performanceStats
     const topicKey = (req.body.topic || "").toLowerCase().replace(/\s/g, "");
 
     if (!user.performanceStats) user.performanceStats = {};
@@ -253,7 +250,6 @@ app.post("/api/evaluate", async (req, res) => {
 
   const data = await response.json();
   let feedback;
-  // ✅ Handle contentEvaluation format from OpenAI
   if (
     !feedback &&
     data.choices &&
@@ -287,7 +283,6 @@ app.post("/api/evaluate", async (req, res) => {
       console.log("❌ Failed to parse 'contentEvaluation' block:", err.message);
     }
   }
-  // ✅ Handle structured feedback with content_comprehension, technical_accuracy, etc.
   if (
     !feedback &&
     data.choices?.[0]?.message?.content.includes("content_comprehension")
@@ -332,7 +327,6 @@ app.post("/api/evaluate", async (req, res) => {
   if (data.feedback) {
     console.log("✅ Using feedback directly from OpenAI response");
 
-    // Fallback if it's already structured with correctness etc.
     if (
       typeof data.feedback === "object" &&
       (data.feedback.correctness ||
@@ -342,7 +336,6 @@ app.post("/api/evaluate", async (req, res) => {
       feedback = data.feedback;
     }
 
-    // NEW: Handle 'evaluation' format like data.feedback.evaluation.architecture
     else if (
       data.feedback.evaluation &&
       data.feedback.evaluation.architecture
@@ -376,9 +369,7 @@ app.post("/api/evaluate", async (req, res) => {
   }
 
   try {
-    // Try parsing directly – newer GPT models already return valid JSON strings
     feedback = JSON.parse(data.choices[0]?.message?.content);
-    // ✅ Clean mapping: Extract only correctness, efficiency, suggestions
     if (
       !feedback.correctness &&
       !feedback.efficiency &&
@@ -394,11 +385,10 @@ app.post("/api/evaluate", async (req, res) => {
         correctness: extract(feedback.Architecture),
         efficiency: extract(feedback["RealTimeCommunication"]),
         suggestions: extract(feedback["OverallFeedback"]),
-        grade: "pass", // optional: you can assign based on keyword logic if needed
+        grade: "pass",
       };
     }
 
-    // ✅ Remap structured behavioral feedback if present
     if (
       !feedback.correctness &&
       !feedback.efficiency &&
@@ -417,7 +407,6 @@ app.post("/api/evaluate", async (req, res) => {
         grade: "pass",
       };
 
-      // Optional: downgrade to fail if average rating is low
       const scores = [
         feedback.clarity?.rating,
         feedback.completeness?.rating,
@@ -431,7 +420,6 @@ app.post("/api/evaluate", async (req, res) => {
       if (avg < 4) feedback.grade = "fail";
     }
 
-    // ✅ Remap system design-style structured feedback if present
     if (
       !feedback.correctness &&
       !feedback.efficiency &&
@@ -454,7 +442,6 @@ app.post("/api/evaluate", async (req, res) => {
         grade: "pass",
       };
 
-      // Optional: downgrade to fail if average rating is low
       const scores = [
         feedback.clarity?.rating,
         feedback.completeness?.rating,
@@ -467,7 +454,6 @@ app.post("/api/evaluate", async (req, res) => {
       const avg = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
       if (avg < 4) feedback.grade = "fail";
     }
-    // ✅ Remap OpenAI feedback using category-style keys like Architecture, Security, etc.
     if (
       !feedback.correctness &&
       !feedback.efficiency &&
@@ -506,7 +492,6 @@ app.post("/api/evaluate", async (req, res) => {
         grade: "pass",
       };
     }
-    // ✅ Remap deeply structured feedback like "database_design", "scalability", etc.
     if (
       !feedback.correctness &&
       !feedback.efficiency &&
@@ -542,21 +527,18 @@ app.post("/api/evaluate", async (req, res) => {
       };
     }
   } catch {
-    // fallback in case OpenAI wraps in ```json blocks
     try {
       const raw = data.choices[0]?.message?.content || "";
       console.log("🪵 Raw OpenAI response:\n", raw);
 
       let cleaned = raw.replace(/```json|```/g, "").trim();
 
-      // Extra step: find first '{' and slice from there
       const firstBrace = cleaned.indexOf("{");
       if (firstBrace !== -1) {
         cleaned = cleaned.slice(firstBrace);
       }
 
       feedback = JSON.parse(cleaned);
-      // ✅ NEW: Handle OpenAI feedback with aspect/comment structure
       if (
         !feedback.correctness &&
         !feedback.efficiency &&
@@ -606,7 +588,6 @@ app.post("/api/evaluate", async (req, res) => {
         };
       }
 
-      // 🧠 Step 2: Handle OpenAI feedback array format
       if (Array.isArray(feedback)) {
         const converted = {
           suggestions: "",
@@ -644,7 +625,6 @@ app.post("/api/evaluate", async (req, res) => {
     }
   }
 
-  // Decode JWT
   const token = req.headers.authorization?.split(" ")[1];
   let decoded;
   try {
@@ -663,14 +643,6 @@ app.post("/api/evaluate", async (req, res) => {
 
   const user = await User.findById(decoded.userId);
 
-  // Prepare feedback + push to user
-
-  // if (isDuplicateAnswer(user, question, answer)) {
-  //   return res
-  //     .status(409)
-  //     .json({ error: "Duplicate answer detected. Try something new!" });
-  // }
-  // ✅ NEW: Handle numeric-scored structured feedback with section.feedback and ratings
   if (
     !feedback.correctness &&
     !feedback.efficiency &&
@@ -715,11 +687,9 @@ app.post("/api/evaluate", async (req, res) => {
   const efficiency = (feedback.efficiency || "").toLowerCase();
   let suggestions = "";
 
-  // ✅ Handle string suggestions
   if (typeof feedback.suggestions === "string" && feedback.suggestions.trim()) {
     suggestions = feedback.suggestions.trim();
   }
-  // ✅ Handle array of suggestion objects
   else if (
     Array.isArray(feedback.feedback?.suggestions) &&
     typeof feedback.suggestions !== "string"
@@ -734,7 +704,6 @@ app.post("/api/evaluate", async (req, res) => {
     suggestions = feedback.suggestions;
   }
 
-  // ✅ Handle object suggestions
   else if (
     typeof feedback.suggestions === "object" &&
     feedback.suggestions !== null
@@ -742,7 +711,6 @@ app.post("/api/evaluate", async (req, res) => {
     suggestions = Object.values(feedback.suggestions).join(" ").trim();
   }
 
-  // ✅ Fallback: try to extract from other known fields
   if (!suggestions) {
     if (feedback.overall_suggestions) {
       suggestions = feedback.overall_suggestions;
@@ -762,7 +730,6 @@ app.post("/api/evaluate", async (req, res) => {
         : feedback.feedback.suggestions;
     }
   }
-  // 🔥 Handle category-based design feedback from OpenAI (e.g., DesignComponents, Summary, etc.)
   if (
     !feedback.correctness &&
     !feedback.efficiency &&
@@ -795,7 +762,6 @@ app.post("/api/evaluate", async (req, res) => {
 
     suggestions = feedback.suggestions;
   }
-  // ✅ Handle structured feedback like strengths, areas_for_improvement, examples, overall_assessment
   if (!suggestions && feedback.feedback) {
     const fb = feedback.feedback;
 
@@ -826,7 +792,6 @@ app.post("/api/evaluate", async (req, res) => {
       suggestions = suggestionParts.join(" ").trim();
     }
   }
-  // ✅ Handle nested feedback like feedback.overall_design.description, strengths, areas_for_improvement
   if (
     !suggestions &&
     typeof feedback.feedback === "object" &&
@@ -862,7 +827,6 @@ app.post("/api/evaluate", async (req, res) => {
 
     suggestions = suggestionParts.join(" ").trim();
   }
-  // ✅ Handle array of suggestion objects
   if (
     Array.isArray(feedback.feedback?.suggestions) &&
     typeof feedback.suggestions !== "string"
@@ -877,7 +841,6 @@ app.post("/api/evaluate", async (req, res) => {
     suggestions = feedback.suggestions;
   }
 
-  // ✅ Remap feedback.feedback.advice if present
   if (
     !suggestions &&
     feedback.feedback &&
@@ -891,7 +854,6 @@ app.post("/api/evaluate", async (req, res) => {
 
   feedback.suggestions = suggestions || "No suggestions available.";
 
-  // 🧹 Ensure suggestions is a string before saving
   if (typeof feedback.suggestions !== "string") {
     try {
       feedback.suggestions = JSON.stringify(feedback.suggestions);
@@ -925,7 +887,6 @@ app.post("/api/evaluate", async (req, res) => {
 
   let matchCount = keywords.filter((k) => combined.includes(k)).length;
 
-  // 🎯 Relaxed grading logic — pass if there's decent structure or effort
   if (!["pass", "fail"].includes(grade)) {
     const evaluation = feedback.evaluation || feedback.feedback || {};
     const strengthsCount = Object.values(evaluation).filter((section) => {
@@ -948,7 +909,6 @@ app.post("/api/evaluate", async (req, res) => {
     }
   }
 
-  // ✅ Additional soft grading logic for structured feedback
   if (!["pass", "fail"].includes(grade)) {
     const evaluation = feedback.evaluation || feedback.feedback || {};
     const strengthsCount = Object.values(evaluation).filter((section) => {
@@ -966,17 +926,14 @@ app.post("/api/evaluate", async (req, res) => {
     }
   }
 
-  // ✅ Soft override: Learning mode logic
   if (!["pass", "fail"].includes(grade)) {
     const fb = feedback.feedback || {};
 
-    // Count strengths in nested structured feedback
     const sectionStrengths = Object.values(fb).filter((section) => {
       if (!section || typeof section !== "object") return false;
       return Array.isArray(section.strengths) && section.strengths.length >= 1;
     }).length;
 
-    // If at least 3 sections have strengths, override to pass
     if (sectionStrengths >= 3) {
       console.log("🎓 Soft pass applied — enough strengths detected.");
       grade = "pass";
@@ -984,9 +941,8 @@ app.post("/api/evaluate", async (req, res) => {
   }
 
   console.log("🎯 Grade value:", grade);
-  feedback.grade = grade; // ✅ Assign final grade to feedback
+  feedback.grade = grade;
 
-  // 🛠 Ensure suggestions is a string before saving
   if (typeof feedback.suggestions !== "string") {
     try {
       feedback.suggestions = JSON.stringify(feedback.suggestions);
@@ -994,7 +950,6 @@ app.post("/api/evaluate", async (req, res) => {
       feedback.suggestions = "Suggestions formatting error.";
     }
   }
-  // ✅ Fallback grade logic if still missing
   if (!["pass", "fail"].includes(grade)) {
     const combinedText =
       `${correctness} ${efficiency} ${suggestions}`.toLowerCase();
@@ -1053,8 +1008,6 @@ app.post("/api/evaluate", async (req, res) => {
     score: user.score,
     answers: user.answers.length,
   });
-  // ✅ Final fallback in case all fields are still empty
-  // ✅ Final fallback: convert structured feedback if main fields are empty
   if (
     !feedback.correctness &&
     !feedback.efficiency &&
@@ -1108,7 +1061,6 @@ app.post("/api/evaluate", async (req, res) => {
       grade: "pass",
     };
 
-    // ✅ Use fb.evaluation instead of feedback.evaluation
     const evalScores = fb.evaluation || {};
     const scoreSum = [
       evalScores.clarity,
@@ -1225,7 +1177,6 @@ app.post("/api/execute", async (req, res) => {
       try {
         const cleaned = aiFeedback.replace(/```json|```/g, "").trim();
         feedback = JSON.parse(cleaned);
-        // ✅ Handle alternate structured feedback like clarity/impact/etc.
         if (
           !feedback.correctness &&
           !feedback.efficiency &&
@@ -1259,7 +1210,6 @@ app.post("/api/execute", async (req, res) => {
           const avg = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
           if (avg < 4) feedback.grade = "fail";
         }
-        // ✅ NEW: Handle OpenAI feedback with aspect/comment structure
         if (
           !feedback.correctness &&
           !feedback.efficiency &&
@@ -1309,7 +1259,6 @@ app.post("/api/execute", async (req, res) => {
           };
         }
 
-        // 🧠 Step 2: Handle OpenAI feedback array format
         if (Array.isArray(feedback)) {
           const converted = {
             suggestions: "",
@@ -1380,6 +1329,7 @@ app.post("/api/login", async (req, res) => {
     res.status(500).json({ message: "Login failed", error });
   }
 });
+
 app.post("/api/signup", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -1420,11 +1370,12 @@ app.post("/api/signup", async (req, res) => {
 app.use("/api/mentor", mentorRoute);
 app.use("/api/user-data", userDataRoute);
 app.use("/api/performance", performanceRoute);
-
 app.use("/api/test-xp", testXpRoute);
 app.use("/api/career", careerRoute);
 app.use("/api/ats-review", atsReviewRoute);
 app.use("/api/resume-review", resumeReviewRoute);
+app.use("/api/user-profile", userProfileRoute);  // ← NEW
+
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
