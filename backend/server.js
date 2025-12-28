@@ -23,7 +23,7 @@ const mentorRoute = require("./routes/mentor");
 const userDataRoute = require("./routes/user-data");
 const testXpRoute = require("./routes/test-xp");
 const careerRoute = require("./routes/career");
-const userProfileRoute = require("./routes/user-profile");  // ← NEW
+const userProfileRoute = require("./routes/user-profile"); // ← NEW
 
 const isInvalidAnswer = (question, answer) => {
   const q = question.toLowerCase().replace(/\s+/g, " ").trim();
@@ -54,6 +54,7 @@ const PORT = 8000;
 
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://127.0.0.1:3000",
   "https://interviewedge.vercel.app",
 ];
 
@@ -334,9 +335,7 @@ app.post("/api/evaluate", async (req, res) => {
         data.feedback.suggestions)
     ) {
       feedback = data.feedback;
-    }
-
-    else if (
+    } else if (
       data.feedback.evaluation &&
       data.feedback.evaluation.architecture
     ) {
@@ -689,8 +688,7 @@ app.post("/api/evaluate", async (req, res) => {
 
   if (typeof feedback.suggestions === "string" && feedback.suggestions.trim()) {
     suggestions = feedback.suggestions.trim();
-  }
-  else if (
+  } else if (
     Array.isArray(feedback.feedback?.suggestions) &&
     typeof feedback.suggestions !== "string"
   ) {
@@ -702,9 +700,7 @@ app.post("/api/evaluate", async (req, res) => {
       })
       .join(" ");
     suggestions = feedback.suggestions;
-  }
-
-  else if (
+  } else if (
     typeof feedback.suggestions === "object" &&
     feedback.suggestions !== null
   ) {
@@ -1374,7 +1370,7 @@ app.use("/api/test-xp", testXpRoute);
 app.use("/api/career", careerRoute);
 app.use("/api/ats-review", atsReviewRoute);
 app.use("/api/resume-review", resumeReviewRoute);
-app.use("/api/user-profile", userProfileRoute);  // ← NEW
+app.use("/api/user-profile", userProfileRoute); // ← NEW
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
