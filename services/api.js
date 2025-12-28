@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:8000/api"; // ✅ Ensure it matches backend port
+const API_URL =
+  typeof window !== "undefined" && window.location.hostname !== "localhost"
+    ? `http://${window.location.hostname}:8000/api`
+    : "http://localhost:8000/api"; // ✅ Ensure it matches backend port
 
 // ✅ Signup Function
 // ✅ FIXED version — do NOT wrap in try/catch here
