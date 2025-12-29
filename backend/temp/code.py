@@ -1,1 +1,5 @@
-Write a function `find_and_match_pattern` to return a list of words that match the given pattern.
+# Write your solution here
+
+def solution():
+    pass
+hbfiuehckjdabcud

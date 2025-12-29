@@ -8,10 +8,16 @@ export default function Navbar() {
   const { user, logoutUser } = useContext(AuthContext);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const navLinks = [
+    { href: "/resume-review", label: "Smart Prep" },
+    { href: "/interview", label: "Interview" },
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/mentor-chat", label: "Mentor" },
+  ];
+
   return (
     <nav className="w-full px-6 py-4 bg-black shadow-sm font-inter border-b border-neutral-800 z-50">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Brand */}
         <Link
           href="/"
           className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent"
@@ -19,7 +25,6 @@ export default function Navbar() {
           InterviewEdge
         </Link>
 
-        {/* Mobile Menu Icon */}
         <button
           className="sm:hidden text-white"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -27,30 +32,25 @@ export default function Navbar() {
           {menuOpen ? <X size={26} /> : <Menu size={26} />}
         </button>
 
-        {/* Nav Links - Desktop */}
         <div className="hidden sm:flex gap-8 text-sm font-medium text-gray-300">
-          <Link href="/interview" className="hover:text-white transition">
-            Interview
-          </Link>
-          <Link href="/dashboard" className="hover:text-white transition">
-            Dashboard
-          </Link>
-          <Link href="/mentor-chat" className="hover:text-white transition">
-            🧑‍🏫 Mentor Chat
-          </Link>
-          <Link href="/resume-review" className="hover:text-white transition">
-            📄 Resume Review
-          </Link>
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="hover:text-white transition"
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
 
-        {/* Auth Buttons - Desktop */}
         <div className="hidden sm:flex gap-3 items-center">
           {user ? (
             <>
-              <span className="text-xs text-gray-400">Hi, {user.name}</span>
+              <span className="text-sm text-gray-400">{user.name}</span>
               <button
                 onClick={logoutUser}
-                className="px-4 py-1.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow"
+                className="px-4 py-1.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow transition"
               >
                 Logout
               </button>
@@ -73,43 +73,24 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {menuOpen && (
         <div className="sm:hidden mt-4 space-y-4 text-sm text-gray-200">
           <div className="flex flex-col gap-3">
-            <Link
-              href="/interview"
-              className="hover:text-white"
-              onClick={() => setMenuOpen(false)}
-            >
-              Interview
-            </Link>
-            <Link
-              href="/dashboard"
-              className="hover:text-white"
-              onClick={() => setMenuOpen(false)}
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/mentor-chat"
-              className="hover:text-white"
-              onClick={() => setMenuOpen(false)}
-            >
-              🧑‍🏫 Mentor Chat
-            </Link>
-            <Link
-              href="/resume-review"
-              className="hover:text-white"
-              onClick={() => setMenuOpen(false)}
-            >
-              📄 Resume Review
-            </Link>
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="hover:text-white"
+                onClick={() => setMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
           <div className="flex flex-col gap-2 mt-4">
             {user ? (
               <>
-                <span className="text-xs text-gray-400">Hi, {user.name}</span>
+                <span className="text-xs text-gray-400">{user.name}</span>
                 <button
                   onClick={() => {
                     logoutUser();
