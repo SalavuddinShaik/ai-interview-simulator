@@ -1,12 +1,19 @@
 "use client";
 import Link from "next/link";
 import { useContext, useState } from "react";
+import { usePathname } from "next/navigation";
 import AuthContext from "../context/AuthContext";
 import { Menu, X } from "lucide-react";
 
 export default function Navbar() {
   const { user, logoutUser } = useContext(AuthContext);
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Hide navbar on login/signup pages
+  if (pathname === "/login" || pathname === "/signup") {
+    return null;
+  }
 
   const navLinks = [
     { href: "/resume-review", label: "Smart Prep" },
