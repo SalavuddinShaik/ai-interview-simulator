@@ -68,29 +68,29 @@ export default function Interview() {
     Python: {
       id: "python",
       template: "# Write your solution here\n\ndef solution():\n    pass\n",
-      icon: "🐍",
+      icon: "",
     },
     JavaScript: {
       id: "javascript",
       template: "// Write your solution here\n\nfunction solution() {\n  \n}\n",
-      icon: "⚡",
+      icon: "",
     },
     Java: {
       id: "java",
       template:
         "class Solution {\n    public static void main(String[] args) {\n        \n    }\n}",
-      icon: "☕",
+      icon: "",
     },
     "C++": {
       id: "cpp",
       template:
         "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    \n    return 0;\n}",
-      icon: "⚙️",
+      icon: "",
     },
     Kotlin: {
       id: "kotlin",
       template: "fun main() {\n    // Write your solution here\n    \n}",
-      icon: "🎯",
+      icon: "",
     },
   };
 
@@ -272,7 +272,7 @@ export default function Interview() {
         <div className="w-full max-w-4xl bg-gradient-to-br from-[#1e1e2f] to-[#111118] p-8 rounded-2xl border border-gray-700 shadow-[0_0_15px_rgba(124,58,237,0.4)]">
           {/* Header */}
           <h1 className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text mb-2 flex items-center gap-3">
-            🎯 Interview Practice
+            Interview Practice
           </h1>
           <p className="text-gray-400 mb-8">
             Practice coding, system design, and behavioral questions with AI
@@ -283,38 +283,38 @@ export default function Interview() {
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="text-sm font-medium text-gray-400 mb-2 block">
-                📦 Category
+                Category
               </label>
               <select
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 className="w-full bg-gray-800 text-white border border-gray-600 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value="Data Structures">📦 Data Structures</option>
-                <option value="Algorithms">⚙️ Algorithms</option>
-                <option value="System Design">🏗️ System Design</option>
-                <option value="Behavioral">💬 Behavioral</option>
+                <option value="Data Structures">Data Structures</option>
+                <option value="Algorithms">Algorithms</option>
+                <option value="System Design">System Design</option>
+                <option value="Behavioral">Behavioral</option>
               </select>
             </div>
 
             <div>
               <label className="text-sm font-medium text-gray-400 mb-2 block">
-                🎚️ Difficulty
+                Difficulty
               </label>
               <select
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value)}
                 className="w-full bg-gray-800 text-white border border-gray-600 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value="Easy">🟢 Easy</option>
-                <option value="Medium">🟡 Medium</option>
-                <option value="Hard">🔴 Hard</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
               </select>
             </div>
 
             <div className="md:col-span-2">
               <label className="text-sm font-medium text-gray-400 mb-2 block">
-                💻 Language
+                Language
               </label>
               <select
                 value={selectedLanguage}
@@ -323,7 +323,7 @@ export default function Interview() {
               >
                 {Object.entries(languageConfig).map(([lang, config]) => (
                   <option key={lang} value={lang}>
-                    {config.icon} {lang}
+                    {lang}
                   </option>
                 ))}
               </select>
@@ -337,7 +337,7 @@ export default function Interview() {
             disabled={loading}
             className="mt-8 w-full px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 text-white font-bold text-lg shadow-lg hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            {loading ? "🔄 Loading..." : "🚀 Start Practice"}
+            {loading ? "Loading..." : "Start Practice"}
           </motion.button>
 
           {/* Personalized CTA */}
@@ -351,7 +351,7 @@ export default function Interview() {
               onClick={() => router.push("/resume-review")}
               className="w-full px-8 py-4 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg hover:brightness-110 transition"
             >
-              ✨ Get Personalized Questions →
+              Get Personalized Questions
             </motion.button>
           </div>
         </div>
@@ -444,7 +444,7 @@ export default function Interview() {
               onClick={exitSession}
               className="px-4 py-2 bg-red-500/20 text-red-400 rounded-xl border border-red-500/50 hover:bg-red-500/30 transition font-medium"
             >
-              ✕ Exit
+              Exit
             </motion.button>
           </div>
         </div>
@@ -465,10 +465,10 @@ export default function Interview() {
                 }`}
               >
                 {questionType === "coding"
-                  ? "💻 Coding"
+                  ? "Coding"
                   : questionType === "system_design"
-                  ? "🏗️ System Design"
-                  : "💬 Behavioral"}
+                  ? "System Design"
+                  : "Behavioral"}
               </span>
               {interviewPrep?.company && (
                 <span className="text-gray-500 text-sm">
@@ -495,7 +495,7 @@ export default function Interview() {
                       showHint ? "rotate-90" : ""
                     }`}
                   >
-                    →
+                    &rarr;
                   </span>
                   <span className="text-sm font-medium">
                     Why this question?
@@ -511,9 +511,7 @@ export default function Interview() {
                       className="overflow-hidden"
                     >
                       <div className="mt-3 p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
-                        <p className="text-gray-300 text-sm">
-                          💡 {questionWhy}
-                        </p>
+                        <p className="text-gray-300 text-sm">{questionWhy}</p>
                       </div>
                     </motion.div>
                   )}
@@ -545,7 +543,7 @@ export default function Interview() {
                             : "bg-yellow-500/30"
                         }`}
                       >
-                        {feedback.grade?.toLowerCase() === "pass" ? "✅" : "⚠️"}
+                        {feedback.grade?.toLowerCase() === "pass" ? "✓" : "!"}
                       </div>
                       <div>
                         <h3
@@ -570,7 +568,7 @@ export default function Interview() {
                   {feedback.correctness && (
                     <div className="p-4 bg-[#161627] rounded-xl border border-gray-700">
                       <h4 className="text-green-400 font-semibold mb-2">
-                        ✅ Correctness
+                        Correctness
                       </h4>
                       <p className="text-gray-300 text-sm">
                         {feedback.correctness}
@@ -581,7 +579,7 @@ export default function Interview() {
                   {feedback.efficiency && (
                     <div className="p-4 bg-[#161627] rounded-xl border border-gray-700">
                       <h4 className="text-blue-400 font-semibold mb-2">
-                        ⚡ Efficiency
+                        Efficiency
                       </h4>
                       <p className="text-gray-300 text-sm">
                         {feedback.efficiency}
@@ -592,7 +590,7 @@ export default function Interview() {
                   {feedback.suggestions && (
                     <div className="p-4 bg-[#161627] rounded-xl border border-gray-700">
                       <h4 className="text-purple-400 font-semibold mb-2">
-                        💡 Suggestions
+                        Suggestions
                       </h4>
                       <p className="text-gray-300 text-sm">
                         {feedback.suggestions}
@@ -610,7 +608,7 @@ export default function Interview() {
                         onClick={nextQuestion}
                         className="w-full px-8 py-4 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg hover:brightness-110 transition"
                       >
-                        Next Question →
+                        Next Question
                       </motion.button>
                     )}
                 </motion.div>
@@ -640,7 +638,7 @@ export default function Interview() {
                 >
                   {Object.entries(languageConfig).map(([lang, config]) => (
                     <option key={lang} value={lang}>
-                      {config.icon} {lang}
+                      {lang}
                     </option>
                   ))}
                 </select>
@@ -653,7 +651,7 @@ export default function Interview() {
                   disabled={loading}
                   className="px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg border border-yellow-500/50 hover:bg-yellow-500/30 transition font-medium text-sm disabled:opacity-50"
                 >
-                  ▶ Run
+                  Run
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.95 }}
@@ -661,7 +659,7 @@ export default function Interview() {
                   disabled={loading || !answer.trim()}
                   className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg font-semibold text-sm shadow-lg hover:brightness-110 disabled:opacity-50 transition"
                 >
-                  {loading ? "..." : "🚀 Submit"}
+                  {loading ? "..." : "Submit"}
                 </motion.button>
               </div>
             </div>

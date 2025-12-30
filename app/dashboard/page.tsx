@@ -147,7 +147,6 @@ export default function Dashboard() {
                 <span className="bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">
                   {user?.name || "Guest"}
                 </span>{" "}
-                👋
               </motion.h1>
               <p className="text-gray-400">{quote}</p>
             </div>
@@ -160,7 +159,7 @@ export default function Dashboard() {
                 onClick={() => router.push("/resume-review")}
                 className="px-5 py-3 bg-gradient-to-br from-[#1e1e2f] to-[#111118] border border-gray-700 rounded-xl text-white font-medium hover:border-purple-500/50 transition shadow-lg"
               >
-                📄 Smart Prep
+                Smart Prep
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -168,7 +167,7 @@ export default function Dashboard() {
                 onClick={() => router.push("/interview")}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-500 rounded-xl text-white font-semibold shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition"
               >
-                🎯 Start Interview
+                Start Interview
               </motion.button>
             </div>
           </div>
@@ -499,13 +498,11 @@ export default function Dashboard() {
           className="mt-8 bg-gradient-to-br from-[#1e1e2f] to-[#111118] rounded-2xl border border-gray-700 p-6 shadow-[0_0_15px_rgba(124,58,237,0.3)]"
         >
           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-            <span className="text-2xl">🎯</span> Recommended Next Steps
+            <span className="text-2xl"></span> Recommended Next Steps
           </h2>
           <div className="grid md:grid-cols-3 gap-4">
             <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
-              <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center mb-3">
-                <span className="text-xl">📄</span>
-              </div>
+              <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center mb-3"></div>
               <h3 className="text-white font-semibold mb-1">Upload Resume</h3>
               <p className="text-gray-400 text-sm mb-3">
                 Get personalized interview questions
